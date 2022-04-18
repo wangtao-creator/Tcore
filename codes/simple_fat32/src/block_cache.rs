@@ -39,18 +39,18 @@ impl BlockCache {
         }
     }
 
-    fn addr_of_offset(&self, offset: usize) -> usize {
+    fn addr_of_offset(&self, offset: usize) -> usize {//内部缓存中指定偏移量的字节地址
         &self.cache[offset] as *const _ as usize
     }
 
-    pub fn get_ref<T>(&self, offset: usize) -> &T where T: Sized {
+    pub fn get_ref<T>(&self, offset: usize) -> &T where T: Sized {//获取缓存区偏移量的一个类型为的磁盘数据结构的不可变引用
         let type_size = core::mem::size_of::<T>();
         assert!(offset + type_size <= BLOCK_SZ);
         let addr = self.addr_of_offset(offset);
         unsafe { &*(addr as *const T) } 
     }
 
-    pub fn get_mut<T>(&mut self, offset: usize) -> &mut T where T: Sized {
+    pub fn get_mut<T>(&mut self, offset: usize) -> &mut T where T: Sized {//可变引用意味着可以写回那么修改标志为true
         let type_size = core::mem::size_of::<T>();
         assert!(offset + type_size <= BLOCK_SZ);
         self.modified = true;
@@ -66,7 +66,7 @@ impl BlockCache {
         f(self.get_mut(offset))
     }
 
-    pub fn sync(&mut self) {
+    pub fn sync(&mut self) {//根据标志是否写回磁盘
         if self.modified {
             //println!("drop cache, id = {}", self.block_id);
             self.modified = false;

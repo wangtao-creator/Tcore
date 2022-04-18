@@ -6,12 +6,12 @@
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
 
+use alloc::sync::Arc;
 use lazy_static::lazy_static;
 use sbi::sbi_send_ipi;
 use spin::*;
-use timer::get_timeval;
 use syscall::*;
-use alloc::sync::Arc;
+use timer::get_timeval;
 
 extern crate alloc;
 
@@ -20,19 +20,19 @@ extern crate bitflags;
 
 #[macro_use]
 mod console;
+mod config;
 mod lang_items;
 mod sbi;
 mod syscall;
 mod trap;
-mod config;
 mod utils;
 #[macro_use]
 mod monitor;
+mod drivers;
+mod fs;
+mod mm;
 mod task;
 mod timer;
-mod mm;
-mod fs;
-mod drivers;
 
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("start_app.S"));
@@ -42,11 +42,10 @@ fn clear_bss() {
         fn sbss();
         fn ebss();
     }
-    (sbss as usize..ebss as usize).for_each(|a| {
-        unsafe { (a as *mut u8).write_volatile(0) }
-    });
+    (sbss as usize..ebss as usize).for_each(|a| unsafe { (a as *mut u8).write_volatile(0) });
 }
 
+#[inline]
 pub fn id() -> usize {
     let cpu_id;
     unsafe {
@@ -55,7 +54,7 @@ pub fn id() -> usize {
     cpu_id
 }
 
-pub const SYSCALL_GETPPID:usize = 173;
+pub const SYSCALL_GETPPID: usize = 173;
 pub fn test() {
     // let start = get_timeval();
     // for _ in 0..100000000{
@@ -65,34 +64,29 @@ pub fn test() {
     // println!("test: run sys_getppid 100000000 times, spent {:?}",end-start);
 }
 
-struct Core2flag{
+struct Core2flag {
     is_in: bool,
 }
 
-impl Core2flag{
-    pub fn is_in(&self)->bool{
+impl Core2flag {
+    pub fn is_in(&self) -> bool {
         self.is_in
     }
-    pub fn set_in(&mut self){
+    pub fn set_in(&mut self) {
         self.is_in = true;
     }
 }
 
-
 lazy_static! {
-    static ref CORE2_FLAG: Arc<Mutex<Core2flag>> = Arc::new(Mutex::new(
-        Core2flag{
-            is_in:false,
-        }
-    ));
+    static ref CORE2_FLAG: Arc<Mutex<Core2flag>> = Arc::new(Mutex::new(Core2flag { is_in: false }));
 }
 
 #[no_mangle]
 pub fn rust_main() -> ! {
     let core = id();
-    // println!("core {} is running",core);
+    println!("core {} is running", core);
     if core != 0 {
-        loop{}
+            loop{}
         /// WARNING: Multicore mode only supports customized RustSBI platform, especially not including OpenSBI
         /// We use OpenSBI in qemu and customized RustSBI in k210, if you want to try Multicore mode, you have to
         /// try to switch to RustSBI in qemu and try to wakeup, which needs some effort and you can refer to docs.
@@ -106,24 +100,25 @@ pub fn rust_main() -> ! {
         task::run_tasks();
         panic!("Unreachable in rust_main!");
     }
+    
     clear_bss();
     mm::init();
     mm::remap_test();
-    println!("UltraOS: memory initialized");
+    println!("Tcore: memory initialized");
     trap::init();
     trap::enable_timer_interrupt();
     timer::set_next_trigger();
-    println!("UltraOS: interrupt initialized");
+    println!("Tcore: interrupt initialized");
     fs::init_rootfs();
-    println!("UltraOS: fs initialized");
+    println!("Tcore: fs initialized");
     task::add_initproc();
-    println!("UltraOS: task initialized");
-    println!("UltraOS: wake other cores");
-    let mask:usize = 1 << 1;
+    println!("Tcore: task initialized");
+    println!("Tcore: wake other cores");
+    let mask: usize = 1 << 1;
     sbi_send_ipi(&mask as *const usize as usize);
-    // CORE2_FLAG.lock().set_in();
-    // test();
-    println!("UltraOS: run tasks");
+    CORE2_FLAG.lock().set_in();
+    test();
+    println!("Tcore: run tasks");
     task::run_tasks();
     panic!("Unreachable in rust_main!");
 }
