@@ -90,25 +90,25 @@ lazy_static! {
 #[no_mangle]
 pub fn rust_main() -> ! {
     let core = id();
-    // println!("core {} is running",core);
+    println!("core {} is running",core);
     if core != 0 {
-        // loop{}
         /// WARNING: Multicore mode only supports customized RustSBI platform, especially not including OpenSBI
         /// We use OpenSBI in qemu and customized RustSBI in k210, if you want to try Multicore mode, you have to
         /// try to switch to RustSBI in qemu and try to wakeup, which needs some effort and you can refer to docs.
-        // while !CORE2_FLAG.lock().is_in(){}
-        println!("core{}",core);
+        /// while !CORE2_FLAG.lock().is_in(){}
+
         mm::init_othercore();
         println!("other core start");
         trap::init();
         trap::enable_timer_interrupt();
         timer::set_next_trigger();
         println!("other core start run tasks");
+        loop{};
         task::run_tasks();
         panic!("Unreachable in rust_main!");
+
     }
     else{
-        println!("core{}",core);
         clear_bss();
         mm::init();
         mm::remap_test();
@@ -129,6 +129,5 @@ pub fn rust_main() -> ! {
         println!("UltraOS: run tasks");
         task::run_tasks();
         panic!("Unreachable in rust_main!");
-
     }
 }
