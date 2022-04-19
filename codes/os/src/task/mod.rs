@@ -223,6 +223,9 @@ pub fn add_initproc() {
     add_initproc_into_fs();
     add_task(INITPROC.clone());
 }
+pub fn other_core_add_initproc() {
+    add_task(INITPROC.clone());
+}
 
 // if there is unhandled signal, it will automatic change trap_cx which makes it unseen in codes outside the func
 pub fn perform_signal_handler(){

@@ -73,6 +73,9 @@ impl Processor {
             // True: Not first time to fetch a task 
             if let Some(current_task) = take_current_task(){
                 gdb_print!(PROCESSOR_ENABLE,"[hart {} run:pid{}]", get_core_id(), current_task.pid.0);
+
+                //println!("[hart {} run:pid{}]", get_core_id(), current_task.pid.0);
+                
                 let mut current_task_inner = current_task.acquire_inner_lock();
                 //println!("get lock");
                 let task_cx_ptr2 = current_task_inner.get_task_cx_ptr2();
@@ -119,6 +122,9 @@ impl Processor {
             } else {
                 // Keep fetching
                 gdb_print!(PROCESSOR_ENABLE,"[run:no current task]");
+
+                //println!("hart {}[run:no current task]",get_core_id());
+
                 if let Some(task) = fetch_task() {
                     // acquire
                     let idle_task_cx_ptr2 = self.get_idle_task_cx_ptr2();
