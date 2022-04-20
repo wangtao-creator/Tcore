@@ -103,11 +103,8 @@ pub fn rust_main() -> ! {
         trap::enable_timer_interrupt();
         timer::set_next_trigger();
         println!("other core start run tasks");
-        //loop{};
-        task::other_core_add_initproc();
         task::run_tasks();
         panic!("Unreachable in rust_main!");
-
     }
     else{
         clear_bss();
@@ -128,6 +125,7 @@ pub fn rust_main() -> ! {
         // CORE2_FLAG.lock().set_in();
         // test();
         println!("Tcore: run tasks");
+        loop{}
         task::run_tasks();
         panic!("Unreachable in rust_main!");
     }

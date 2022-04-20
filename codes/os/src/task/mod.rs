@@ -116,6 +116,11 @@ lazy_static! {
         let v = inode.read_all();
         TaskControlBlock::new(v.as_slice())
     });
+    pub static ref USERSHELL: Arc<TaskControlBlock> = Arc::new({
+        let inode = open("/","user_shell", OpenFlags::RDONLY, DiskInodeType::File).unwrap();
+        let v = inode.read_all();
+        TaskControlBlock::new(v.as_slice())
+    });
 }
 
 // Write initproc & user_shell into file system to be executed
@@ -170,7 +175,7 @@ pub fn add_initproc_into_fs() {
         OpenFlags::CREATE,
         DiskInodeType::File
     ){
-        // println!("Create initproc ");
+        println!("Create initproc ");
         let mut data: Vec<&'static mut [u8]> = Vec::new();
         data.push( unsafe{
         core::slice::from_raw_parts_mut(
@@ -179,7 +184,7 @@ pub fn add_initproc_into_fs() {
         )}) ;
         // println!("Start write initproc ");
         inode.write(UserBuffer::new(data));
-        // println!("Init_proc OK");
+        //println!("Init_proc OK");
     }
     else{
         // panic!("initproc create fail!");
@@ -201,7 +206,7 @@ pub fn add_initproc_into_fs() {
         //data.extend_from_slice(  )
         // println!("Start write user_shell ");
         inode.write(UserBuffer::new(data));
-        // println!("User_shell OK");
+        //println!("User_shell OK");
     }
     else{
         panic!("user_shell create fail!");
@@ -221,10 +226,8 @@ pub fn add_initproc_into_fs() {
 
 pub fn add_initproc() {
     add_initproc_into_fs();
-    add_task(INITPROC.clone());
-}
-pub fn other_core_add_initproc() {
-    add_task(INITPROC.clone());
+    //add_task(USERSHELL.clone());
+    add_task(USERSHELL.clone());
 }
 
 // if there is unhandled signal, it will automatic change trap_cx which makes it unseen in codes outside the func
