@@ -2,6 +2,7 @@ all:
 	# rustup target add riscv64gc-unknown-none-elf
 	cd codes/user && make elf
 	cd codes/os && make release BOARD=k210
+	cp codes/os/target/riscv64imac-unknown-none-elf/release/os.bin os.bin
 
 env:
 	rustup update
