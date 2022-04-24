@@ -10,3 +10,9 @@ edition = "2018"
 clap = "2.33.3"
 simple-fat32 = { path = "../simple_fat32" }
 rand = "0.8.0"
+
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"

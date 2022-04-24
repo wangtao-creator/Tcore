@@ -9,7 +9,13 @@ edition = "2018"
 # The newest versions are described below, but they are not compatible with UltraOS's newest version.
 # riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 [dependencies]
-spin = { path = "../dependency/spin-0.7.1" }
-lazy_static = { path = "../dependency/lazy_static", features = ["spin_no_std"] }
+spin = "0.7.0"
+lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 riscv = { path = "../dependency/riscv", features = ["inline-asm"] }
 #os = {path = "../os"}
+
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"

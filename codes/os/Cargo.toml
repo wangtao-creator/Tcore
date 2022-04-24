@@ -1,7 +1,7 @@
 [package]
-name = "os"
+name = "UltraOS"
 version = "0.1.1"
-authors = []
+authors = ["LoanCold <loancold@foxmail.com>", "Haochen Gong <1527198893@qq.com>", "Xiangyu REN"]
 edition = "2018"
 
 # The newest versions are described below, but they are not compatible with UltraOS's newest version.
@@ -11,15 +11,22 @@ edition = "2018"
 # k210-hal = { git = "https://github.com/wyfcyx/k210-hal" }
 # k210-soc = { git = "https://github.com/wyfcyx/k210-soc" }
 
+
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"
+
 [dependencies]
-lazy_static = { path = "../dependency/lazy_static", features = ["spin_no_std"] }
-buddy_system_allocator = { path = "../dependency/buddy_system_allocator" }
-spin = { path = "../dependency/spin-0.7.1" }
-bitflags = { path = "../dependency/bitflags" }
-xmas-elf = { path = "../dependency/xmas-elf" }
+lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
+buddy_system_allocator = "0.6"
+spin = "0.7.0"
+bitflags = "1.2.1"
+xmas-elf = "0.7.0"
 simple-fat32 = { path = "../simple_fat32" }
-embedded-hal = { path = "../dependency/embedded-hal" }
-nb = "1.0.0"
+embedded-hal = "=1.0.0-alpha.1"
+nb = "1"
 riscv = { path = "../dependency/riscv", features = ["inline-asm"] }
 virtio-drivers = { path = "../dependency/virtio-drivers" }
 k210-pac = { path = "../dependency/k210-pac" }
