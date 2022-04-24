@@ -49,7 +49,7 @@ OBJCOPY := rust-objcopy --binary-architecture=riscv64
 DISASM ?= -x
 
 # build: env $(KERNEL_BIN) $(FS_IMG) fat32
-build: $(KERNEL_BIN)
+build: env $(KERNEL_BIN)
 
 env:
 	rustup override set nightly-2021-05-10
