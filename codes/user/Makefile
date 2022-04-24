@@ -17,7 +17,7 @@ update:
 	rm -r ${TESTDIR}/riscv64
 
 elf: $(APPS)
-#	rustup target add $(TARGET)
+	rustup target add $(TARGET)
 	@cargo build --release
 
 binary: elf
