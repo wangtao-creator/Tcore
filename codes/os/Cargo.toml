@@ -12,14 +12,14 @@ edition = "2018"
 # k210-soc = { git = "https://github.com/wyfcyx/k210-soc" }
 
 [dependencies]
-lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
-buddy_system_allocator = "0.6"
-spin = "0.7.0"
+lazy_static = { path = "../dependency/lazy_static", features = ["spin_no_std"] }
+buddy_system_allocator = { path = "../dependency/buddy_system_allocator" }
+spin = { path = "../dependency/spin-0.7.1" }
 bitflags = { path = "../dependency/bitflags" }
-xmas-elf = "0.7.0"
+xmas-elf = { path = "../dependency/xmas-elf" }
 simple-fat32 = { path = "../simple_fat32" }
-embedded-hal = "1.0.0-alpha.1"
-nb = "1"
+embedded-hal = { path = "../dependency/embedded-hal" }
+nb = "1.0.0"
 riscv = { path = "../dependency/riscv", features = ["inline-asm"] }
 virtio-drivers = { path = "../dependency/virtio-drivers" }
 k210-pac = { path = "../dependency/k210-pac" }

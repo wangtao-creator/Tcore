@@ -281,17 +281,7 @@
 #[doc(hidden)]
 pub extern crate core as _core;
 
-#[doc(inline)]
-pub use bitflags_trait::BitFlags;
-
-mod bitflags_trait;
-
-#[doc(hidden)]
-pub mod __private {
-    pub use crate::bitflags_trait::ImplementedByBitFlagsMacro;
-}
-
-/// The macro used to generate the flag structure.
+/// The macro used to generate the flag structures.
 ///
 /// See the [crate level docs](../bitflags/index.html) for complete documentation.
 ///
@@ -494,12 +484,13 @@ macro_rules! __impl_bitflags {
                         f.write_str(" | ")?;
                     }
                     first = false;
-                    $crate::_core::write!(f, "{:#x}", extra_bits)?;
+                    f.write_str("0x")?;
+                    $crate::_core::fmt::LowerHex::fmt(&extra_bits, f)?;
                 }
                 if first {
                     f.write_str("(empty)")?;
                 }
-                $crate::_core::fmt::Result::Ok(())
+                Ok(())
             }
         }
         impl $crate::_core::fmt::Binary for $BitFlags {
@@ -578,7 +569,7 @@ macro_rules! __impl_bitflags {
             ///
             /// # Safety
             ///
-            /// The caller of the `bitflags!` macro can choose to allow or
+            /// The caller of the `bitflags!` macro can chose to allow or
             /// disallow extra bits for their bitflags type.
             ///
             /// The caller of `from_bits_unchecked()` has to ensure that
@@ -829,68 +820,6 @@ macro_rules! __impl_bitflags {
                 result
             }
         }
-
-        impl $crate::BitFlags for $BitFlags {
-            type Bits = $T;
-
-            fn empty() -> Self {
-                $BitFlags::empty()
-            }
-
-            fn all() -> Self {
-                $BitFlags::all()
-            }
-
-            fn bits(&self) -> $T {
-                $BitFlags::bits(self)
-            }
-
-            fn from_bits(bits: $T) -> $crate::_core::option::Option<$BitFlags> {
-                $BitFlags::from_bits(bits)
-            }
-
-            fn from_bits_truncate(bits: $T) -> $BitFlags {
-                $BitFlags::from_bits_truncate(bits)
-            }
-
-            unsafe fn from_bits_unchecked(bits: $T) -> $BitFlags {
-                $BitFlags::from_bits_unchecked(bits)
-            }
-
-            fn is_empty(&self) -> bool {
-                $BitFlags::is_empty(self)
-            }
-
-            fn is_all(&self) -> bool {
-                $BitFlags::is_all(self)
-            }
-
-            fn intersects(&self, other: $BitFlags) -> bool {
-                $BitFlags::intersects(self, other)
-            }
-
-            fn contains(&self, other: $BitFlags) -> bool {
-                $BitFlags::contains(self, other)
-            }
-
-            fn insert(&mut self, other: $BitFlags) {
-                $BitFlags::insert(self, other)
-            }
-
-            fn remove(&mut self, other: $BitFlags) {
-                $BitFlags::remove(self, other)
-            }
-
-            fn toggle(&mut self, other: $BitFlags) {
-                $BitFlags::toggle(self, other)
-            }
-
-            fn set(&mut self, other: $BitFlags, value: bool) {
-                $BitFlags::set(self, other, value)
-            }
-        }
-
-        impl $crate::__private::ImplementedByBitFlagsMacro for $BitFlags {}
     };
 
     // Every attribute that the user writes on a const is applied to the
@@ -1789,7 +1718,7 @@ mod tests {
     }
 
     bitflags! {
-        #[derive(serde_derive::Serialize, serde_derive::Deserialize)]
+        #[derive(serde::Serialize, serde::Deserialize)]
         struct SerdeFlags: u32 {
             const A = 1;
             const B = 2;

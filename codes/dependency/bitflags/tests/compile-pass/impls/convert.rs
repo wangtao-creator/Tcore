@@ -12,4 +12,6 @@ impl From<u32> for Flags {
     }
 }
 
-fn main() {}
+fn main() {
+
+}
