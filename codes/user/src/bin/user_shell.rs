@@ -858,16 +858,75 @@ fn get_args_addr(op: &String) -> Vec<*const u8> {
     args_addr
 }
 
+// new add func 2022.04.28
+fn auto_run_phase1() -> bool{
+    let mut testsuits: Vec<&str> = Vec::new();
+    testsuits.push("times\0");
+    testsuits.push("gettimeofday\0");
+    testsuits.push("sleep\0");
+    testsuits.push("brk\0");
+    testsuits.push("clone\0");
+    testsuits.push("close\0");
+    testsuits.push("dup2\0");
+    testsuits.push("dup\0");
+    testsuits.push("execve\0");
+    testsuits.push("exit\0");
+    testsuits.push("fork\0");
+    testsuits.push("fstat\0");
+    testsuits.push("getcwd\0");
+    testsuits.push("getdents\0");
+    testsuits.push("getpid\0");
+    testsuits.push("getppid\0");
+    
+    testsuits.push("mmap\0");
+    testsuits.push("munmap\0");
+    testsuits.push("mount\0");
+    
+    testsuits.push("open\0");
+    testsuits.push("pipe\0");
+    testsuits.push("read\0");
+    testsuits.push("umount\0");
+    testsuits.push("uname\0");
+    testsuits.push("wait\0");
+    testsuits.push("waitpid\0");
+    testsuits.push("write\0");
+    testsuits.push("yield\0");
+    testsuits.push("unlink\0");
+    testsuits.push("chdir\0");
+
+    testsuits.push("mkdir_\0");
+    testsuits.push("openat\0");
+    for programname in testsuits.iter() {
+        let pid = fork();
+        let mut exit_code = 0;
+        let mut args_addr: Vec<*const u8> = Vec::new();
+        args_addr.push(0 as *const u8);
+        if pid == 0 {
+            // child process
+            if exec(programname, args_addr.as_slice()) == -1 {
+                println!("Error when executing run_testsuites!1");
+                return false;
+            }
+            unreachable!();
+        } else {
+            waitpid(pid as usize, &mut exit_code);
+        }
+    }
+    return false;
+}
+
 #[no_mangle]
 pub fn main() -> i32 {
     // delete init programs in fs
     //unlink("initproc\0");
     //unlink("user_shell\0");
     println!("Delete init programs initproc and user_shell in FS");
+    auto_run_phase1();
     // ArgMachine::auto_run_testsuites();
     let mut line: String;
     let mut shellmachine = InputMachine::new();
     let mut arg_machine = ArgMachine::new();
+
     loop {
         // println!{"<<<<<<<<<entering the loop of input"}
         let c = getchar();
