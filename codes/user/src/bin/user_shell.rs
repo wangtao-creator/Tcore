@@ -416,6 +416,77 @@ impl ArgMachine {
         }
         return true;
     }
+
+    pub fn print_state(&mut self) {
+        println!("argc: {}\nstate: {}", self.argc, self.state);
+        for i in 0..self.argc {
+            println!("arg[{}]:{}", i, self.args[i].clone().as_str());
+        }
+    }
+
+    pub fn get_args(&mut self) -> (Vec<String>, String, String) {
+        //copy args
+        let mut args_copy: Vec<String> = Vec::new();
+        self.args.iter_mut().for_each(|string| {
+            args_copy.push(string.clone());
+        });
+
+        // redirect input
+        let mut input = String::new();
+        if let Some((idx, _)) = args_copy
+            .iter()
+            .enumerate()
+            .find(|(_, arg)| arg.as_str() == "<\0")
+        {
+            input = args_copy[idx + 1].clone();
+            args_copy.drain(idx..=idx + 1);
+        }
+
+        // redirect output
+        let mut output = String::new();
+        if let Some((idx, _)) = args_copy
+            .iter()
+            .enumerate()
+            .find(|(_, arg)| arg.as_str() == ">\0")
+        {
+            output = args_copy[idx + 1].clone();
+            args_copy.drain(idx..=idx + 1);
+        };
+
+        (args_copy, input, output)
+    }
+
+    // Assume "self.args' meet "cd" requirements
+    pub fn change_dir(&mut self) {
+        let mut cd_path = self.args[1].clone();
+        if chdir(cd_path.as_str()) == -1 {
+            println!("cd: No such directory!");
+            return;
+        }
+
+        cd_path.pop(); // clear '\0' at the end of str
+        let mut cd_path_vec: Vec<String> = Vec::new();
+        cd_path
+            .as_str()
+            .split('/')
+            .for_each(|str| cd_path_vec.push(String::from(str)));
+
+        let is_from_root = cd_path_vec[0].is_empty(); // start from '/' root
+        if is_from_root {
+            self.path.clear();
+        }
+        cd_path_vec.iter().for_each(
+            |string| // name of every single directory entry(eg. /hello/world -> "hello","world")
+            if !string.is_empty() && string.as_str() != "."{
+                if string.as_str() == ".."{
+                    self.path.pop();
+                }
+                else{
+                    self.path.push(string.clone());
+                }
+            }
+        );
+    }
 }
 
 fn get_args_addr(op: &String) -> Vec<*const u8> {
@@ -431,6 +502,7 @@ fn get_args_addr(op: &String) -> Vec<*const u8> {
     args_addr.push(0 as *const u8);
     args_addr
 }
+
 
 // new add func 2022.04.28
 fn auto_run_phase1() -> bool{
@@ -455,7 +527,7 @@ fn auto_run_phase1() -> bool{
     testsuits.push("mmap\0");
     testsuits.push("munmap\0");
     testsuits.push("mount\0");
-    
+
     testsuits.push("open\0");
     testsuits.push("pipe\0");
     testsuits.push("read\0");
@@ -467,7 +539,7 @@ fn auto_run_phase1() -> bool{
     testsuits.push("yield\0");
     testsuits.push("unlink\0");
     testsuits.push("chdir\0");
-
+    
     testsuits.push("mkdir_\0");
     testsuits.push("openat\0");
     for programname in testsuits.iter() {
