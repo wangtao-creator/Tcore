@@ -2,4 +2,58 @@ If the CMD runs incorrectly, return value will put in result.txt
 Else nothing will put in result.txt
 
 TEST START
+return: 126, cmd: echo "#### independent command test"
+return: 126, cmd: ash -c exit
+return: 126, cmd: sh -c exit
+return: 126, cmd: basename /aaa/bbb
+return: 126, cmd: cal
+return: 126, cmd: # clear
+return: 126, cmd: date
+return: 126, cmd: df
+return: 126, cmd: dirname /aaa/bbb
+return: 126, cmd: dmesg
+return: 126, cmd: du
+return: 126, cmd: expr 1 + 1
+return: 126, cmd: true
+return: 126, cmd: which ls
+return: 126, cmd: uname
+return: 126, cmd: uptime
+return: 126, cmd: printf "abcn"
+return: 126, cmd: ps
+return: 126, cmd: pwd
+return: 126, cmd: free
+return: 126, cmd: hwclock
+return: 126, cmd: kill 10
+return: 126, cmd: ls
+return: 126, cmd: sleep 1
+return: 126, cmd: echo "#### file opration test"
+return: 126, cmd: touch test.txt
+return: 126, cmd: echo "hello world" > test.txt
+return: 126, cmd: cat test.txt
+return: 126, cmd: cut -c 3 test.txt
+return: 126, cmd: od test.txt
+return: 126, cmd: head test.txt
+return: 126, cmd: tail test.txt
+return: 126, cmd: hexdump -C test.txt
+return: 126, cmd: md5sum test.txt
+return: 126, cmd: echo "ccccccc" >> test.txt
+return: 126, cmd: echo "bbbbbbb" >> test.txt
+return: 126, cmd: echo "aaaaaaa" >> test.txt
+return: 126, cmd: echo "2222222" >> test.txt
+return: 126, cmd: echo "1111111" >> test.txt
+return: 126, cmd: echo "bbbbbbb" >> test.txt
+return: 126, cmd: sort test.txt | ./busybox uniq
+return: 126, cmd: stat test.txt
+return: 126, cmd: strings test.txt
+return: 126, cmd: wc test.txt
+return: 126, cmd: [ -f test.txt ]
+return: 126, cmd: more test.txt
+return: 126, cmd: rm test.txt
+return: 126, cmd: mkdir test_dir
+return: 126, cmd: mv test_dir test
+return: 126, cmd: rmdir test
+return: 126, cmd: grep hello busybox_cmd.txt
+return: 126, cmd: cp busybox_cmd.txt busybox_cmd.bak
+return: 126, cmd: rm busybox_cmd.bak
+return: 126, cmd: find -name "busybox_cmd.txt"
 TEST END

@@ -18,7 +18,8 @@ update:
 
 elf: $(APPS)
 	rustup target add $(TARGET)
-	@cargo build --release
+#	@cargo build --release
+	@cargo build --offline --release
 
 binary: elf
 	$(foreach elf, $(ELFS), $(OBJCOPY) $(elf) --strip-all -O binary $(patsubst $(TARGET_DIR)/%, $(TARGET_DIR)/%.bin, $(elf));)

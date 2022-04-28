@@ -16,7 +16,7 @@ endif
 
 SDCARD := /dev/sdb
 APPS := ../user/src/bin/*
-TOP := ../../k210.bin
+TOP := ../../os.bin
 
 # BOARD
 BOARD ?= qemu

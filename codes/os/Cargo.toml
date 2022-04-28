@@ -1,7 +1,6 @@
 [package]
-name = "UltraOS"
+name = "os"
 version = "0.1.1"
-authors = ["LoanCold <loancold@foxmail.com>", "Haochen Gong <1527198893@qq.com>", "Xiangyu REN"]
 edition = "2018"
 
 # The newest versions are described below, but they are not compatible with UltraOS's newest version.
@@ -11,12 +10,6 @@ edition = "2018"
 # k210-hal = { git = "https://github.com/wyfcyx/k210-hal" }
 # k210-soc = { git = "https://github.com/wyfcyx/k210-soc" }
 
-
-[source.crates-io]
-replace-with = "vendored-sources"
-
-[source.vendored-sources]
-directory = "vendor"
 
 [dependencies]
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }

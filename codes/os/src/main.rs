@@ -86,7 +86,7 @@ pub fn rust_main() -> ! {
     let core = id();
     println!("core {} is running", core);
     if core != 0 {
-            loop{}
+        loop{}
         /// WARNING: Multicore mode only supports customized RustSBI platform, especially not including OpenSBI
         /// We use OpenSBI in qemu and customized RustSBI in k210, if you want to try Multicore mode, you have to
         /// try to switch to RustSBI in qemu and try to wakeup, which needs some effort and you can refer to docs.
@@ -116,8 +116,8 @@ pub fn rust_main() -> ! {
     println!("Tcore: wake other cores");
     let mask: usize = 1 << 1;
     sbi_send_ipi(&mask as *const usize as usize);
-    CORE2_FLAG.lock().set_in();
-    test();
+    //CORE2_FLAG.lock().set_in();
+    //test();
     println!("Tcore: run tasks");
     task::run_tasks();
     panic!("Unreachable in rust_main!");
