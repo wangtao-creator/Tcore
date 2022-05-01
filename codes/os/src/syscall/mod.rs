@@ -194,9 +194,9 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_GETEUID => sys_geteuid(),
         SYSCALL_GETGID => sys_getgid(),
         SYSCALL_GETEGID => sys_getegid(),
-        SYSCALL_THREAD_CREATE =>sys_thread_create(args[0],args[1]),
+        //SYSCALL_THREAD_CREATE =>sys_thread_create(args[0],args[1]),
         SYSCALL_GETTID => sys_gettid(),
-        SYSCALL_WAITTID =>sys_waittid(args[0]) as isize,
+        //SYSCALL_WAITTID =>sys_waittid(args[0]) as isize,
 
         SYSCALL_CLONE => {
             unsafe {

@@ -330,7 +330,7 @@ pub fn sys_getpid() -> isize {
 
 // For user, pid is tgid in kernel
 pub fn sys_getppid() -> isize {
-    let mut search_task: Arc<TaskControlBlock> = current_task().unwrap();
+    let mut search_task: Arc<ProcessControlBlock> = current_task().unwrap();
     search_task = search_task.get_parent().unwrap();
     gdb_println!(SYSCALL_ENABLE,"sys_getppid() = {}",search_task.tgid);
     search_task.tgid as isize
