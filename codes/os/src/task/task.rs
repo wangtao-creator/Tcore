@@ -49,23 +49,32 @@ pub struct ProcAddress {
     pub clear_child_tid: usize,
 }
 
-pub struct TaskControlBlock {
+pub struct ProcessControlBlock {
     // immutable
     pub pid: PidHandle,
     pub tgid: usize,
     pub kernel_stack: KernelStack,
     // mutable
-    inner: Mutex<TaskControlBlockInner>,
+    inner: Mutex<ProcessControlBlockInner>,
 }
 
+// thread 
+pub struct TaskUserRes{
+    pub tid: usize, //线程标识符
+    pub ustack_base: usize,//线程的栈顶地址
+    pub process :Weak<ProcessControlBlock>,//线程所属的进程
+
+}
+
+
 pub type FdTable =  Vec<Option<FileDescripter>>;
-pub struct TaskControlBlockInner {
+pub struct ProcessControlBlockInner {
     // task
     pub trap_cx_ppn: PhysPageNum,
     pub task_cx_ptr: usize,
     pub task_status: TaskStatus,
-    pub parent: Option<Weak<TaskControlBlock>>,
-    pub children: Vec<Arc<TaskControlBlock>>,
+    pub parent: Option<Weak<ProcessControlBlock>>,
+    pub children: Vec<Arc<ProcessControlBlock>>,
     pub exit_code: i32,
     // memory
     pub memory_set: MemorySet,
@@ -84,6 +93,8 @@ pub struct TaskControlBlockInner {
     pub trapcx_backup: TrapContext,
     // resource
     pub resource_list: [RLimit;17],
+    //thread
+    pub res : Option<TaskUserRes>,
 }
 
 impl ProcAddress {
@@ -92,7 +103,7 @@ impl ProcAddress {
     }
 }
 
-impl TaskControlBlockInner {
+impl ProcessControlBlockInner {
     pub fn get_task_cx_ptr2(&self) -> *const usize {
         &self.task_cx_ptr as *const usize
     }
@@ -159,13 +170,13 @@ impl TaskControlBlockInner {
 
 
 
-impl TaskControlBlock {
-    pub fn acquire_inner_lock(&self) -> MutexGuard<TaskControlBlockInner> {
+impl ProcessControlBlock {
+    pub fn acquire_inner_lock(&self) -> MutexGuard<ProcessControlBlockInner> {
         // println!{"acquiring lock..."}
         self.inner.lock()
     }
     
-    pub fn get_parent(&self) -> Option<Arc<TaskControlBlock>> {
+    pub fn get_parent(&self) -> Option<Arc<ProcessControlBlock>> {
         let inner = self.inner.lock();
         inner.parent.as_ref().unwrap().upgrade()
     }
@@ -290,7 +301,7 @@ impl TaskControlBlock {
             pid: pid_handle,
             tgid,
             kernel_stack,
-            inner: Mutex::new(TaskControlBlockInner {
+            inner: Mutex::new(ProcessControlBlockInner {
                 address: ProcAddress::new(),
                 rusage: RUsage::new(),
                 itimer: ITimerVal::new(),
@@ -528,7 +539,7 @@ impl TaskControlBlock {
         // **** release current PCB lock
     }
     
-    pub fn fork(self: &Arc<TaskControlBlock>, is_create_thread: bool) -> Arc<TaskControlBlock> {
+    pub fn fork(self: &Arc<ProcessControlBlock>, is_create_thread: bool) -> Arc<ProcessControlBlock> {
         // ---- hold parent PCB lock
         let mut parent_inner = self.acquire_inner_lock();
         // println!{"trap context of pid{}: {:X}", self.pid.0, parent_inner.trap_cx_ppn.0}
@@ -568,11 +579,11 @@ impl TaskControlBlock {
             }
         }
         //println!("fork: parent_inner.current_inode = {}",parent_inner.current_inode);
-        let task_control_block = Arc::new(TaskControlBlock {
+        let task_control_block = Arc::new(ProcessControlBlock {
             pid: pid_handle,
             tgid,
             kernel_stack,
-            inner: Mutex::new(TaskControlBlockInner {
+            inner: Mutex::new(ProcessControlBlockInner {
                 address: ProcAddress::new(),
                 rusage: RUsage::new(),
                 itimer: ITimerVal::new(),

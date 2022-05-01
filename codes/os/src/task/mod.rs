@@ -14,7 +14,7 @@ use crate::gdb_print;
 use crate::monitor::*;
 //use easy_fs::DiskInodeType;
 use switch::__switch;
-pub use task::{TaskControlBlock, TaskControlBlockInner, TaskStatus, FdTable};
+pub use task::{ProcessControlBlock, ProcessControlBlockInner, TaskStatus, FdTable};
 pub use info::*;
 pub use resource::*;
 use alloc::sync::Arc;
@@ -111,10 +111,10 @@ pub fn exit_current_and_run_next(exit_code: i32) {
 }
 
 lazy_static! {
-    pub static ref INITPROC: Arc<TaskControlBlock> = Arc::new({
+    pub static ref INITPROC: Arc<ProcessControlBlock> = Arc::new({
         let inode = open("/","initproc", OpenFlags::RDONLY, DiskInodeType::File).unwrap();
         let v = inode.read_all();
-        TaskControlBlock::new(v.as_slice())
+        ProcessControlBlock::new(v.as_slice())
     });
 }
 

@@ -1,6 +1,6 @@
 // #![feature(llvm_asm)]
 // #[macro_use]
-use super::{TaskControlBlock, RUsage};
+use super::{ProcessControlBlock, RUsage};
 use alloc::sync::Arc;
 use core::{borrow::Borrow, cell::RefCell};
 use lazy_static::*;
@@ -28,7 +28,7 @@ pub struct Processor {
 unsafe impl Sync for Processor {}
 
 struct ProcessorInner {
-    current: Option<Arc<TaskControlBlock>>,
+    current: Option<Arc<ProcessControlBlock>>,
     idle_task_cx_ptr: usize,
     user_clock: usize,  /* Timer usec when last enter into the user program */
     kernel_clock: usize, /* Timer usec when user program traps into the kernel*/
@@ -79,6 +79,7 @@ impl Processor {
                 let idle_task_cx_ptr2 = self.get_idle_task_cx_ptr2();
                 // True: switch
                 // False: return to current task, don't switch
+                //todo
                 if let Some(task) = fetch_task() {
                     let mut task_inner = task.acquire_inner_lock();
                     task_inner.memory_set.activate();// change satp
@@ -139,10 +140,10 @@ impl Processor {
             }
         }
     }
-    pub fn take_current(&self) -> Option<Arc<TaskControlBlock>> {
+    pub fn take_current(&self) -> Option<Arc<ProcessControlBlock>> {
         self.inner.borrow_mut().current.take()
     }
-    pub fn current(&self) -> Option<Arc<TaskControlBlock>> {
+    pub fn current(&self) -> Option<Arc<ProcessControlBlock>> {
         self.inner.borrow().current.as_ref().map(|task| Arc::clone(task))
     }
 }
@@ -156,12 +157,12 @@ pub fn run_tasks() {
     PROCESSOR_LIST[core_id].run();
 }
 
-pub fn take_current_task() -> Option<Arc<TaskControlBlock>> {
+pub fn take_current_task() -> Option<Arc<ProcessControlBlock>> {
     let core_id: usize = get_core_id();
     PROCESSOR_LIST[core_id].take_current()
 }
 
-pub fn current_task() -> Option<Arc<TaskControlBlock>> {
+pub fn current_task() -> Option<Arc<ProcessControlBlock>> {
     let core_id: usize = get_core_id();
     PROCESSOR_LIST[core_id].current()
 }
