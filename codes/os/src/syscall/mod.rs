@@ -46,7 +46,6 @@ const SYSCALL_GETUID: usize = 174;
 const SYSCALL_GETEUID: usize = 175;
 const SYSCALL_GETGID: usize = 176;
 const SYSCALL_GETEGID: usize = 177;
-const SYSCALL_GETTID: usize = 177;
 const SYSCALL_SBRK: usize = 213;
 const SYSCALL_BRK: usize = 214;
 const SYSCALL_MUNMAP: usize = 215;
@@ -57,6 +56,10 @@ const SYSCALL_MPROTECT: usize = 226;
 const SYSCALL_WAIT4: usize = 260;
 const SYSCALL_PRLIMIT: usize = 261;
 const SYSCALL_RENAMEAT2: usize = 276;
+const SYSCALL_THREAD_CREATE: usize = 1000;
+const SYSCALL_GETTID: usize = 1001;
+const SYSCALL_WAITTID: usize = 1002;
+
 
 // Not standard POSIX sys_call
 const SYSCALL_LS: usize = 500;
@@ -65,9 +68,11 @@ const SYSCALL_CLEAR: usize = 502;
 
 mod fs;
 mod process;
+mod thread;
 
 pub use fs::*;
 use process::*;
+use thread::*;
 use crate::gdb_print;
 use crate::monitor::*;
 use crate::sbi::shutdown;
@@ -189,7 +194,9 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_GETEUID => sys_geteuid(),
         SYSCALL_GETGID => sys_getgid(),
         SYSCALL_GETEGID => sys_getegid(),
+        SYSCALL_THREAD_CREATE =>sys_thread_create(args[0],args[1]),
         SYSCALL_GETTID => sys_gettid(),
+        SYSCALL_WAITTID =>sys_waittid(args[0]) as isize,
 
         SYSCALL_CLONE => {
             unsafe {

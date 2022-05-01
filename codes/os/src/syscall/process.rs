@@ -383,7 +383,8 @@ pub fn sys_brk(brk_addr: usize) -> isize{
 pub fn sys_fork(flags: usize, stack_ptr: usize, ptid: usize, ctid: usize, newtls: usize) -> isize {
     let current_task = current_task().unwrap();
     let new_task = current_task.fork(false);
-    let tid = new_task.getpid();
+    // todo 
+    let tid = new_task.getpid();//注意这里tid就是pid改！
     let flags = CloneFlags::from_bits(flags).unwrap();
     if flags.contains(CloneFlags::CLONE_CHILD_SETTID) && ctid != 0{
         new_task.acquire_inner_lock().address.set_child_tid = ctid; 
@@ -407,7 +408,7 @@ pub fn sys_fork(flags: usize, stack_ptr: usize, ptid: usize, ctid: usize, newtls
     let trap_cx = new_task.acquire_inner_lock().get_trap_cx();
     // we do not have to move to next instruction since we have done it before
     // for child process, fork returns 0
-    trap_cx.x[10] = 0;
+    trap_cx.x[10] = 0;//x[10] is  a0 reg
     // add new task to scheduler
     add_task(new_task);
     unsafe {

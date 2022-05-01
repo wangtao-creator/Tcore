@@ -579,7 +579,7 @@ impl MemorySet {
     }
 
     pub fn activate(&self) {
-        let satp = self.page_table.token();
+        let satp = self.page_table.token();//启动分页模式
         unsafe {
             satp::write(satp);
             llvm_asm!("sfence.vma" :::: "volatile");

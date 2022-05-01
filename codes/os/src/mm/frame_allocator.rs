@@ -46,9 +46,9 @@ trait FrameAllocator {
 }
 
 pub struct StackFrameAllocator {
-    current: usize,
-    end: usize,
-    recycled: Vec<usize>,
+    current: usize,//stating physical page number of free memory
+    end: usize,//ending  of physical page of free memory
+    recycled: Vec<usize>,//The number of the physical page being reclaimed
     refcounter: BTreeMap<usize, u8>,
 }
 
