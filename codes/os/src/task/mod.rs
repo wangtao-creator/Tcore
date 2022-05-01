@@ -1,6 +1,6 @@
 mod context;
 mod switch;
-mod task;
+mod process;
 mod manager;
 mod processor;
 mod pid;
@@ -14,7 +14,11 @@ use crate::gdb_print;
 use crate::monitor::*;
 //use easy_fs::DiskInodeType;
 use switch::__switch;
+<<<<<<< HEAD
 pub use task::{ProcessControlBlock, ProcessControlBlockInner, TaskStatus, FdTable};
+=======
+pub use process::{ProcessControlBlock, ProcessControlBlockInner, TaskStatus, FdTable};
+>>>>>>> 02668003de865571f981d951a5a0210fba88ac3b
 pub use info::*;
 pub use resource::*;
 use alloc::sync::Arc;
@@ -40,7 +44,7 @@ pub use processor::{
 };
 pub use manager::{add_task, find_task};
 pub use pid::{PidHandle, pid_alloc, KernelStack};
-pub use task::AuxHeader;
+pub use process::AuxHeader;
 
 
 pub fn suspend_current_and_run_next() -> isize{
