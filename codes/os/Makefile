@@ -51,6 +51,12 @@ DISASM ?= -x
 # build: env $(KERNEL_BIN) $(FS_IMG) fat32
 build: env $(KERNEL_BIN)
 
+debug: build
+	@tmux new-session -d \
+		"qemu-system-riscv64 -machine virt -nographic -bios $(BOOTLOADER) -device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA) -s -S" && \
+		tmux split-window -h "riscv64-unknown-elf-gdb -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'" && \
+		tmux -2 attach-session -d
+
 env:
 	rustup override set nightly-2021-05-10
 	(rustup target list | grep "riscv64imac-unknown-none-elf (installed)") || rustup target add $(TARGET)

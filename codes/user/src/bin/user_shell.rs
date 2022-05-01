@@ -523,11 +523,11 @@ fn auto_run_phase1() -> bool{
     testsuits.push("getdents\0");
     testsuits.push("getpid\0");
     testsuits.push("getppid\0");
-    
+    testsuits.push("mkdir_\0");
     testsuits.push("mmap\0");
     testsuits.push("munmap\0");
     testsuits.push("mount\0");
-
+    testsuits.push("openat\0");
     testsuits.push("open\0");
     testsuits.push("pipe\0");
     testsuits.push("read\0");
@@ -539,9 +539,6 @@ fn auto_run_phase1() -> bool{
     testsuits.push("yield\0");
     testsuits.push("unlink\0");
     testsuits.push("chdir\0");
-    
-    testsuits.push("mkdir_\0");
-    testsuits.push("openat\0");
     for programname in testsuits.iter() {
         let pid = fork();
         let mut exit_code = 0;
