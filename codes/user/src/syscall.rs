@@ -58,6 +58,8 @@ const SYSCALL_LS: usize = 500;
 const SYSCALL_SHUTDOWN: usize = 501;
 const SYSCALL_CLEAR: usize = 502;
 
+
+const SYSCALL_GPUTEST: usize = 666;
 use super::TimeVal;
 use alloc::string::String;
 
@@ -222,4 +224,8 @@ pub fn sys_shutdown() -> isize {
 }
 pub fn sys_trap() -> isize {
     syscall(1000, [0, 0, 0])
+}
+
+pub fn sys_gputest() {
+    syscall(SYSCALL_GPUTEST, [0, 0, 0]);
 }

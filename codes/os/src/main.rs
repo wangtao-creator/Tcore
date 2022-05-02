@@ -34,6 +34,7 @@ mod mm;
 mod task;
 mod timer;
 
+mod sync;
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("start_app.S"));
 
