@@ -127,7 +127,7 @@ impl TaskUserRes {
         ustack_base: usize,
         alloc_user_res: bool,
     ) -> Self {
-        let tid = process.acquire_acquire_inner_lock().alloc_tid();
+        let tid = process.acquire_inner_lock().alloc_tid();
         let task_user_res = Self {
             tid,
             ustack_base,
