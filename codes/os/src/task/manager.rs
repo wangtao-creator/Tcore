@@ -1,5 +1,5 @@
 use super::{ProcessControlBlock, TaskControlBlock};
-use crate::spin::Mutex;
+use spin::Mutex;
 use alloc::collections::{BTreeMap, VecDeque};
 use alloc::sync::Arc;
 use lazy_static::*;
@@ -24,7 +24,7 @@ impl TaskManager {
 }
 
 lazy_static! {
-    pub static ref TASK_MANAGER: Mutex<TaskManager> = unsafe { Mutex::new(TaskManager::new()) };
+    pub static ref TASK_MANAGER: Mutex<TaskManager> = Mutex::new(TaskManager::new());
     pub static ref PID2PCB: Mutex<BTreeMap<usize, Arc<ProcessControlBlock>>> =
         Mutex::new(BTreeMap::new());
 }

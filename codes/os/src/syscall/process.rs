@@ -380,47 +380,21 @@ pub fn sys_brk(brk_addr: usize) -> isize{
 //long clone(unsigned long flags, void *child_stack,
 //    int *ptid, int *ctid,
 //    unsigned long newtls);
-pub fn sys_fork(flags: usize, stack_ptr: usize, ptid: usize, ctid: usize, newtls: usize) -> isize {
-    let current_task = current_task().unwrap();
-    let new_task = current_task.fork(false);
-    // todo 
-    let tid = new_task.getpid();//注意这里tid就是pid改！
-    let flags = CloneFlags::from_bits(flags).unwrap();
-    if flags.contains(CloneFlags::CLONE_CHILD_SETTID) && ctid != 0{
-        new_task.acquire_inner_lock().address.set_child_tid = ctid; 
-        *translated_refmut(new_task.acquire_inner_lock().get_user_token(), ctid as *mut i32) = tid  as i32;
-    }
-    if flags.contains(CloneFlags::CLONE_CHILD_CLEARTID) && ctid != 0{
-        new_task.acquire_inner_lock().address.clear_child_tid = ctid;
-    }
-    if !flags.contains(CloneFlags::SIGCHLD){
-        panic!("sys_fork: FLAG not supported!");
-        return -1;
-    }
-
-    
-    if stack_ptr != 0{
-        let trap_cx = new_task.acquire_inner_lock().get_trap_cx();
-        trap_cx.set_sp(stack_ptr);
-    }
-    let new_pid = new_task.pid.0;
+pub fn sys_fork() -> isize {
+    let current_process = current_process();
+    let new_process = current_process.fork();
+    let new_pid = new_process.getpid();
     // modify trap context of new_task, because it returns immediately after switching
-    let trap_cx = new_task.acquire_inner_lock().get_trap_cx();
+    let new_process_inner = new_process.inner_exclusive_access();
+    let task = new_process_inner.tasks[0].as_ref().unwrap();
+    let trap_cx = task.inner_exclusive_access().get_trap_cx();
     // we do not have to move to next instruction since we have done it before
     // for child process, fork returns 0
-    trap_cx.x[10] = 0;//x[10] is  a0 reg
-    // add new task to scheduler
-    add_task(new_task);
-    unsafe {
-        llvm_asm!("sfence.vma" :::: "volatile");
-        llvm_asm!("fence.i" :::: "volatile");
-    }
-    gdb_println!(SYSCALL_ENABLE,"sys_fork(flags: {:?}, stack_ptr: 0x{:X}, ptid: {}, ctid: {}, newtls: {}) = {}", flags, stack_ptr, ptid, ctid, newtls, new_pid);
+    trap_cx.x[10] = 0;
     new_pid as isize
 }
 
 pub fn sys_exec(path: *const u8, mut args: *const usize) -> isize {
-    //println!("[sys_exec]");
     let token = current_user_token();
     let path = translated_str(token, path);
     let mut args_vec: Vec<String> = Vec::new();
@@ -430,41 +404,17 @@ pub fn sys_exec(path: *const u8, mut args: *const usize) -> isize {
             break;
         }
         args_vec.push(translated_str(token, arg_str_ptr as *const u8));
-        // println!("arg{}: {}",0, args_vec[0]);
-        unsafe { args = args.add(1); }
-    }
-    let task = current_task().unwrap();
-    let mut inner = task.acquire_inner_lock();
-    let args_vec_copy = args_vec.clone();
-    
-    if let Some(app_inode) = open(inner.current_path.as_str(),path.as_str(), OpenFlags::RDONLY, DiskInodeType::File) {
-        let len = app_inode.get_size();
-        gdb_println!(EXEC_ENABLE,"[exec] File size: {} bytes", len);
-        let fd = inner.alloc_fd();
-        inner.fd_table[fd] = Some( 
-            FileDescripter::new(
-                false, 
-                FileClass::File(app_inode)
-            )
-        );
-        drop(inner);
-        let elf_buf = task.kmmap(0, len, 0, 0, fd as isize, 0);
-        let argc = args_vec.len();
-        unsafe{
-            let elf_ref = slice::from_raw_parts(elf_buf as *const u8, len);
-            task.exec(elf_ref, args_vec);
-            let inner = task.acquire_inner_lock();
-        }
-        task.kmunmap(elf_buf, len);
-        // drop fd
-        let mut inner = task.acquire_inner_lock();
-        inner.fd_table[fd].take();
         unsafe {
-            llvm_asm!("sfence.vma" :::: "volatile");
-            llvm_asm!("fence.i" :::: "volatile");
+            args = args.add(1);
         }
-        gdb_println!(SYSCALL_ENABLE, "sys_exec(path: {}, args: {:?}) = {}", path, args_vec_copy, argc);
-        0 
+    }
+    if let Some(app_inode) = open_file(path.as_str(), OpenFlags::RDONLY) {
+        let all_data = app_inode.read_all();
+        let process = current_process();
+        let argc = args_vec.len();
+        process.exec(all_data.as_slice(), args_vec);
+        // return argc because cx.x[10] will be covered with it later
+        argc as isize
     } else {
         -1
     }
@@ -524,40 +474,37 @@ pub fn sys_wait4(pid: isize, wstatus: *mut i32, option: isize) -> isize {
 /// If there is not a child process whose pid is same as given, return -1.
 /// Else if there is a child process but it is still running, return -2.
 pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
-    let task = current_task().unwrap();
+    let process = current_process();
     // find a child process
 
-    // ---- hold current PCB lock
-    let mut inner = task.acquire_inner_lock();
-    if inner.children
+    let mut inner = process.inner_exclusive_access();
+    if !inner
+        .children
         .iter()
-        .find(|p| {pid == -1 || pid as usize == p.getpid()})
-        .is_none() {
+        .any(|p| pid == -1 || pid as usize == p.getpid())
+    {
         return -1;
-        // ---- release current PCB lock
+        // ---- release current PCB
     }
-    let pair = inner.children
-        .iter()
-        .enumerate()
-        .find(|(_, p)| {
-            // ++++ temporarily hold child PCB lock
-            p.acquire_inner_lock().is_zombie() && (pid == -1 || pid as usize == p.getpid())
-            // ++++ release child PCB lock
-        });
+    let pair = inner.children.iter().enumerate().find(|(_, p)| {
+        // ++++ temporarily access child PCB exclusively
+        p.inner_exclusive_access().is_zombie && (pid == -1 || pid as usize == p.getpid())
+        // ++++ release child PCB
+    });
     if let Some((idx, _)) = pair {
         let child = inner.children.remove(idx);
         // confirm that child will be deallocated after being removed from children list
         assert_eq!(Arc::strong_count(&child), 1);
         let found_pid = child.getpid();
-        // ++++ temporarily hold child lock
-        let exit_code = child.acquire_inner_lock().exit_code;
-        // ++++ release child PCB lock
+        // ++++ temporarily access child PCB exclusively
+        let exit_code = child.inner_exclusive_access().exit_code;
+        // ++++ release child PCB
         *translated_refmut(inner.memory_set.token(), exit_code_ptr) = exit_code;
         found_pid as isize
     } else {
         -2
     }
-    // ---- release current PCB lock automatically
+    // ---- release current PCB automatically
 }
 
 // not support full flags: MAP_FIXED

@@ -10,7 +10,7 @@ use crate::{fs::{Dirent, FdSet, File, FileClass, FileDescripter, IoVec, IoVecs, 
         ProcessControlBlockInner,
         TimeVal,
     }};
-use crate::task::{current_user_token, current_task, suspend_current_and_run_next/* , print_core_info*/};
+use crate::task::{current_user_token, current_process, suspend_current_and_run_next/* , print_core_info*/};
 use crate::fs::{make_pipe, OpenFlags, open, ch_dir, list_files, DiskInodeType};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -28,8 +28,8 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     //    panic!("write 6/5");
     //}
     let token = current_user_token();
-    let task = current_task().unwrap();
-    let inner = task.acquire_inner_lock();
+    let process = current_process();
+    let inner = process.acquire_inner_lock();
     if fd >= inner.fd_table.len() {
         return -1;
     }
@@ -63,8 +63,8 @@ pub fn sys_writev(fd:usize, iov_ptr: usize, iov_num:usize)->isize{
     let iov_head = iov_ptr as *mut IoVec;
     
     let token = current_user_token();
-    let task = current_task().unwrap();
-    let inner = task.acquire_inner_lock();
+    let process = current_process();
+    let inner = process.acquire_inner_lock();
     if fd >= inner.fd_table.len() {
         return -1;
     }
@@ -93,8 +93,8 @@ pub fn sys_writev(fd:usize, iov_ptr: usize, iov_num:usize)->isize{
 
 pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
     let token = current_user_token();
-    let task = current_task().unwrap();
-    let inner = task.acquire_inner_lock();
+    let process = current_process();
+    let inner = process.acquire_inner_lock();
 
     if fd >= inner.fd_table.len() {
         return -1;
@@ -124,7 +124,7 @@ pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
 
 // TODO:文件所有权
 pub fn sys_open_at(dirfd: isize, path: *const u8, flags: u32, mode: u32) -> isize {
-    let task = current_task().unwrap();
+    let process = current_process();
     let token = current_user_token();
     // 这里传入的地址为用户的虚地址，因此要使用用户的虚地址进行映射
     let path = translated_str(token, path);
@@ -229,8 +229,8 @@ pub fn sys_open_at(dirfd: isize, path: *const u8, flags: u32, mode: u32) -> isiz
 }
 
 pub fn sys_close(fd: usize) -> isize {
-    let task = current_task().unwrap();
-    let mut inner = task.acquire_inner_lock();
+    let process = current_process();
+    let mut inner = process.acquire_inner_lock();
     if fd >= inner.fd_table.len() {
         gdb_println!(SYSCALL_ENABLE, "sys_close(fd: {}) = {}", fd, -1);
         return -1;
@@ -248,9 +248,9 @@ pub fn sys_pipe(pipe: *mut u32, flags: usize) -> isize {
     if flags != 0{
         println!("[sys_pipe]: flags not support");
     }
-    let task = current_task().unwrap();
+    let process = current_process();
     let token = current_user_token();
-    let mut inner = task.acquire_inner_lock();
+    let mut inner = process.acquire_inner_lock();
     let (pipe_read, pipe_write) = make_pipe();
     let read_fd = inner.alloc_fd();
     inner.fd_table[read_fd] = Some( FileDescripter::new(
@@ -269,8 +269,8 @@ pub fn sys_pipe(pipe: *mut u32, flags: usize) -> isize {
 }
 
 pub fn sys_dup(fd: usize) -> isize {
-    let task = current_task().unwrap();
-    let mut inner = task.acquire_inner_lock();
+    let process= current_process();
+    let mut inner = process.acquire_inner_lock();
     if fd >= inner.fd_table.len() {
         return -1;
     }
@@ -285,8 +285,8 @@ pub fn sys_dup(fd: usize) -> isize {
 pub fn sys_chdir(path: *const u8) -> isize{
     //print_core_info();
     let token = current_user_token();
-    let task = current_task().unwrap();
-    let mut inner = task.acquire_inner_lock();
+    let process = current_process();
+    let mut inner = process.acquire_inner_lock();
     let path = translated_str(token, path);
     let mut work_path = inner.current_path.clone();
     //println!("work path = {}", work_path);
@@ -333,8 +333,8 @@ pub fn sys_chdir(path: *const u8) -> isize{
 pub fn sys_ls(path: *const u8) -> isize{
     // println!("ls");
     let token = current_user_token();
-    let task = current_task().unwrap();
-    let inner = task.acquire_inner_lock();
+    let process = current_process();
+    let inner = process.acquire_inner_lock();
     let path = translated_str(token, path);
     let work_path = inner.current_path.clone();
     // println!("work path = {}", work_path);
@@ -350,9 +350,9 @@ pub fn sys_ls(path: *const u8) -> isize{
 */
 pub fn sys_getcwd(buf: *mut u8, len: usize)->isize{
     let token = current_user_token();
-    let task = current_task().unwrap();
+    let process= current_process();
     let buf_vec = translated_byte_buffer(token, buf, len);
-    let inner = task.acquire_inner_lock();
+    let inner = process.acquire_inner_lock();
     
     let mut userbuf = UserBuffer::new(buf_vec);
     let current_offset:usize = 0;
@@ -366,8 +366,8 @@ pub fn sys_getcwd(buf: *mut u8, len: usize)->isize{
 }
 
 pub fn sys_dup3( old_fd: usize, new_fd: usize )->isize{
-    let task = current_task().unwrap();
-    let mut inner = task.acquire_inner_lock();
+    let process= current_process();
+    let mut inner = process.acquire_inner_lock();
     if  old_fd >= inner.fd_table.len() || new_fd > FD_LIMIT {
         return -1;
     }
@@ -393,9 +393,9 @@ pub fn sys_getdents64(fd:isize, buf: *mut u8, len:usize)->isize{
     //return 0;
     //println!("=====================================");
     let token = current_user_token();
-    let task = current_task().unwrap();
+    let process = current_process();
     let buf_vec = translated_byte_buffer(token, buf, len);
-    let inner = task.acquire_inner_lock();
+    let inner = process.acquire_inner_lock();
     let dent_len = size_of::<Dirent>();
     //let max_num = len / dent_len;
     let mut total_len:usize = 0;
@@ -458,9 +458,9 @@ pub fn sys_getdents64(fd:isize, buf: *mut u8, len:usize)->isize{
 
 pub fn sys_fstat(fd:isize, buf: *mut u8)->isize{
     let token = current_user_token();
-    let task = current_task().unwrap();
+    let process = current_process();
     let mut buf_vec = translated_byte_buffer(token, buf, size_of::<Kstat>());
-    let inner = task.acquire_inner_lock();
+    let inner = process.acquire_inner_lock();
     // 使用UserBuffer结构，以便于跨页读写
     let mut userbuf = UserBuffer::new(buf_vec);
     let mut kstat = Kstat::empty();
@@ -507,9 +507,9 @@ pub fn sys_fstat(fd:isize, buf: *mut u8)->isize{
 
 pub fn sys_newfstatat(fd:isize, path: *const u8, buf: *mut u8, flag: u32)->isize{
     let token = current_user_token();
-    let task = current_task().unwrap();
+    let process= current_process();
     let mut buf_vec = translated_byte_buffer(token, buf, size_of::<NewStat>());
-    let inner = task.acquire_inner_lock();
+    let inner = process.acquire_inner_lock();
     //println!("size = {}", size_of::<NewStat>());
     // 使用UserBuffer结构，以便于跨页读写
     let mut userbuf = UserBuffer::new(buf_vec);
@@ -565,8 +565,8 @@ pub fn sys_newfstatat(fd:isize, path: *const u8, buf: *mut u8, flag: u32)->isize
 
 pub fn sys_mkdir(dirfd:isize, path: *const u8, mode:u32)->isize{
     let token = current_user_token();
-    let task = current_task().unwrap();
-    let inner = task.acquire_inner_lock();
+    let process = current_process();
+    let inner = process.acquire_inner_lock();
     let path = translated_str(token, path);
     if dirfd == AT_FDCWD {
         let work_path = inner.current_path.clone();
@@ -620,11 +620,11 @@ pub fn sys_umount( p_special:*const u8, flags:usize )->isize{
 }
 
 pub fn sys_clear( path:*const u8 )->isize{
-    let task = current_task().unwrap();
+    let process = current_process();
     let token = current_user_token();
     // 这里传入的地址为用户的虚地址，因此要使用用户的虚地址进行映射
     let path = translated_str(token, path);
-    let mut inner = task.acquire_inner_lock();
+    let mut inner = process.acquire_inner_lock();
     if let Some(inode) = open(
         inner.get_work_path().as_str(),
         path.as_str(),
@@ -644,13 +644,13 @@ pub fn sys_clear( path:*const u8 )->isize{
 //}
 
 pub fn sys_unlinkat(fd:i32, path:*const u8, flags:u32)->isize{
-    let task = current_task().unwrap();
+    let process = current_process();
     let token = current_user_token();
     // 这里传入的地址为用户的虚地址，因此要使用用户的虚地址进行映射
     let path = translated_str(token, path);
     //print!("\n");
     //println!("unlink: path = {}", path);
-    let mut inner = task.acquire_inner_lock();
+    let mut inner = process.acquire_inner_lock();
     //println!("openat: fd = {}", dirfd);
 
     if let Some(file) = get_file_discpt(fd as isize, & path, &inner, OpenFlags::from_bits(flags).unwrap()){
@@ -668,8 +668,8 @@ pub fn sys_unlinkat(fd:i32, path:*const u8, flags:u32)->isize{
 
 pub fn sys_ioctl(fd:usize, cmd:u32, arg:usize)->isize{
     let token = current_user_token();
-    let task = current_task().unwrap();
-    let inner = task.acquire_inner_lock();
+    let process = current_process();
+    let inner = process.acquire_inner_lock();
     if fd >= inner.fd_table.len() {
         return -1;
     }
@@ -704,8 +704,8 @@ pub const F_DUPFD_CLOEXEC: u32 = 1030;  /* Duplicate file descriptor with close-
 pub const FD_CLOEXEC: u32 = 1;
 
 pub fn fcntl(fd:usize, cmd:u32, arg:usize)->isize{
-    let task = current_task().unwrap();
-    let mut inner = task.acquire_inner_lock();
+    let process = current_process();
+    let mut inner = process.acquire_inner_lock();
     
     if fd > inner.fd_table.len() {
         return -1;
@@ -744,8 +744,8 @@ pub fn fcntl(fd:usize, cmd:u32, arg:usize)->isize{
 
 /* dup the fd using the lowest-numbered available fd >= new_fd */
 fn dup_inc( old_fd:usize, new_fd:usize, fd_table: &mut FdTable) -> isize {
-    let task = current_task().unwrap();
-    let mut inner = task.acquire_inner_lock();
+    let process = current_process();
+    let mut inner = process.acquire_inner_lock();
     if  old_fd >= inner.fd_table.len() || new_fd > FD_LIMIT {
         return -1;
     }
@@ -767,13 +767,13 @@ fn dup_inc( old_fd:usize, new_fd:usize, fd_table: &mut FdTable) -> isize {
 }
 
 pub fn sys_utimensat(fd:usize, path:*const u8, time:usize, flags:u32)->isize{
-    let task = current_task().unwrap();
+    let process = current_process();
     let token = current_user_token();
     // 这里传入的地址为用户的虚地址，因此要使用用户的虚地址进行映射
     let path = translated_str(token, path);
     //print!("\n");
     //println!("unlink: path = {}", path);
-    let mut inner = task.acquire_inner_lock();
+    let mut inner = process.acquire_inner_lock();
     //println!("openat: fd = {}", dirfd);
     if let Some(file) = get_file_discpt(fd as isize, & path, &inner,  OpenFlags::from_bits(flags).unwrap() ){
         match file {
@@ -793,9 +793,9 @@ pub fn sys_renameat2( old_dirfd:isize, old_path:*const u8, new_dirfd:isize, new_
         println!("[sys_renameat2] cannot handle flags != 0");
         //return -1;
     }
-    let task = current_task().unwrap();
+    let process = current_process();
     let token = current_user_token();
-    let inner = task.acquire_inner_lock();
+    let inner = process.acquire_inner_lock();
     let oldpath = translated_str(token, old_path);
     let newpath = translated_str(token, new_path);
     // find old file
@@ -862,9 +862,9 @@ pub fn sys_sendfile(out_fd:isize, in_fd:isize, offset_ptr: *mut usize, count: us
         If offset is NULL, then data will be read from in_fd starting at
         the file offset, and the file offset will be updated by the call.
     */
-    let task = current_task().unwrap();
+    let process= current_process();
     let token = current_user_token();
-    let inner = task.acquire_inner_lock();
+    let inner = process.acquire_inner_lock();
 
     //task.kmmap(0, count, 0, 0, in_fd, off);
     
@@ -904,7 +904,7 @@ pub fn sys_sendfile(out_fd:isize, in_fd:isize, offset_ptr: *mut usize, count: us
 // This syscall is not complete at all, only /read proc/self/exe
 pub fn sys_readlinkat(dirfd: isize, pathname: *const u8, buf: *mut u8, bufsiz: usize) -> isize{
     if dirfd == AT_FDCWD{
-        let task = current_task().unwrap();
+        let process = current_process();
         let token = current_user_token();
         let path = translated_str(token, pathname);
         if path.as_str() != "/proc/self/exe" {
@@ -984,7 +984,7 @@ pub fn sys_pselect(
     readfds:*mut u8, writefds:*mut u8, exceptfds:*mut u8,
     timeout:*mut usize
 )->isize{
-    let task = current_task().unwrap();
+    let process = current_process();
     let token = current_user_token();
 
     let mut r_ready_count = 0;
@@ -1196,9 +1196,9 @@ pub fn sys_pselect(
 }
 
 pub fn sys_lseek(fd: usize, offset: isize, whence: i32)->isize{
-    let task = current_task().unwrap();
+    let process = current_process();
     let token = current_user_token();
-    let inner = task.acquire_inner_lock();
+    let inner = process.acquire_inner_lock();
 
     if fd > inner.fd_table.len() {
         return -1

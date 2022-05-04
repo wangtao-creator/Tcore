@@ -191,6 +191,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
         SYSCALL_GETPID => sys_getpid(),
         SYSCALL_GETPPID => sys_getppid(),
         SYSCALL_GETUID => sys_getuid(),
+        SYSCALL_GETUID => sys_getuid(),
         SYSCALL_GETEUID => sys_geteuid(),
         SYSCALL_GETGID => sys_getgid(),
         SYSCALL_GETEGID => sys_getegid(),
@@ -202,7 +203,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 6]) -> isize {
             unsafe {
                 //llvm_asm!("sfence.vma" :::: "volatile");
             }
-            sys_fork(args[0] as usize, args[1] as  usize, args[2] as  usize, args[3] as  usize, args[4] as usize)
+            sys_fork()
         },
         SYSCALL_EXEC => {
             unsafe {

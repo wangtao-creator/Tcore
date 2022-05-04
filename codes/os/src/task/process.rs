@@ -13,6 +13,7 @@ use alloc::vec::Vec;
 use core::cell::RefMut;
 use create::{syscall::FD_LIMIT,RLIMIT_NOFILE};
 use crate::fs::{ FileDescripter , Stdin, Stdout};
+use spin::Mutex;
 
 pub struct ProcessControlBlock{
     //immutable
@@ -22,45 +23,51 @@ pub struct ProcessControlBlock{
 }
 
 pub type FdTable =  Vec<Option<FileDescripter>>;
+
 pub struct ProcessControlBlockInner{
-    pub is_zombie : bool,
-    pub memory_set : MemorySet,
-    pub parent : Option<ProcessControlBlock>,
-    pub children : Vec<Arc<TaskControlBlock>,
-    pub exit_code : i32,
-    pub current_path: String,
-    pub fd_table : FdTable,
-    pub tasks : Vec<Option<Arc<TaskControlBlock>>>,
-    pub task_res_allocator :  RecycleAllocator,
-    pub signals : Signal,
+    pub is_zombie: bool,
+    pub memory_set: MemorySet,
+    pub parent: Option<Weak<ProcessControlBlock>>,
+    pub children: Vec<Arc<ProcessControlBlock>>,
+    pub exit_code: i32,
+    pub fd_table: FdTable,
+    pub signals: Signal,
+    pub tasks: Vec<Option<Arc<TaskControlBlock>>>,
+    pub task_res_allocator: RecycleAllocator,
 }
 
-impl  ProcessControlBlockInner{
-    #[allow_unused]
-    pub fn get_user_token(&self) ->usize{
+impl ProcessControlBlockInner {
+    #[allow(unused)]
+    pub fn get_user_token(&self) -> usize {
         self.memory_set.token()
     }
-    pub fn alloc_fd(&mut self) ->usize{
-        if let Some(fd) = (0..self.fd_table.len()).find(|fd| self.fd_table[*fd].is_none()){
+
+    pub fn alloc_fd(&mut self) -> usize {
+        if let Some(fd) = (0..self.fd_table.len()).find(|fd| self.fd_table[*fd].is_none()) {
             fd
-        }else{
-            self.fd_table.push(None)
+        } else {
+            self.fd_table.push(None);
             self.fd_table.len() - 1
         }
     }
-    pub fn alloc_tid(&mut self) -> usize{
+
+    pub fn alloc_tid(&mut self) -> usize {
         self.task_res_allocator.alloc()
     }
-    pub fn dealloc_tid(&mut self,tid: usize) -> usize{
+
+    pub fn dealloc_tid(&mut self, tid: usize) {
         self.task_res_allocator.dealloc(tid)
     }
-    pub fn thread_count(&self) -> usize{
+
+    pub fn thread_count(&self) -> usize {
         self.tasks.len()
     }
-    pub fn get_task(&self ,tid: usize) ->Arc<TaskControlBlock>{
-        self.tasks.[tid].as_ref().unwrap().clone()
+
+    pub fn get_task(&self, tid: usize) -> Arc<TaskControlBlock> {
+        self.tasks[tid].as_ref().unwrap().clone()
     }
 }
+
 
 impl ProcessControlBlock{
     pub fn acquire_inner_lock(&self) ->RefMut<'_,ProcessControlBlockInner>{
@@ -258,4 +265,4 @@ impl ProcessControlBlock{
 
 
 
-}
+
