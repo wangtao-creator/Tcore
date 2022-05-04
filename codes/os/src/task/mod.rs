@@ -3,7 +3,7 @@ mod id;
 mod manager;
 mod process;
 mod processor;
-mod signal;
+mod info;
 mod switch;
 #[allow(clippy::module_inception)]
 mod task;
@@ -14,13 +14,7 @@ use lazy_static::*;
 use manager::fetch_task;
 use process::ProcessControlBlock;
 use switch::__switch;
-use crate::fs::{open_file, OpenFlags};
-use alloc::sync::Arc;
 use lazy_static::*;
-use manager::fetch_task;
-use process::ProcessControlBlock;
-use switch::__switch;
-
 pub use context::TaskContext;
 pub use id::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
 pub use manager::{add_task, pid2process, remove_from_pid2process};
@@ -28,7 +22,7 @@ pub use processor::{
     current_kstack_top, current_process, current_task, current_trap_cx, current_trap_cx_user_va,
     current_user_token, run_tasks, schedule, take_current_task,
 };
-pub use signal::SignalFlags;
+pub use info::Signals;
 pub use task::{TaskControlBlock, TaskStatus};
 
 pub fn suspend_current_and_run_next() {
@@ -46,7 +40,7 @@ pub fn suspend_current_and_run_next() {
     // push back to ready queue.
     add_task(task);
     // jump to scheduling cycle
-    schedule(task_cx_ptr);
+    schedule(task_cx_ptr );
 }
 
 pub fn block_current_and_run_next() {
@@ -55,7 +49,7 @@ pub fn block_current_and_run_next() {
     let task_cx_ptr = &mut task_inner.task_cx as *mut TaskContext;
     task_inner.task_status = TaskStatus::Blocking;
     drop(task_inner);
-    schedule(task_cx_ptr);
+    schedule(task_cx_ptr );
 }
 
 pub fn exit_current_and_run_next(exit_code: i32) {

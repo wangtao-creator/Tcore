@@ -78,7 +78,7 @@ impl ProcessControlBlock{
         let (memory_set,ustack_base,entry_point) =MemorySet::from_elf(elf_data);
         //alloc  a pid  
         let pid_handle = pid_alloc();
-        let process  = Arc::new(Self){
+        let process  = Arc::new(Self) {
             pid : pid_handle,
             inner :Mutex::new(ProcessControlBlockInner{
                 is_zombie : false,
@@ -139,7 +139,7 @@ impl ProcessControlBlock{
         add_task(task);
         process
     }
-    pub fn exec(self : &Arc<self>,elf_data:&[u8],args:Vec<String>)->{
+    pub fn exec(self : &Arc<self>,elf_data:&[u8],args:Vec<String>)-> {
         assert_eq!(self.inner.lock().thread.count(),0);
         //memory_set with elf program headers/trampoline/trap context/user stack
         let (memory_set,user_stack,entry_point)  = MemorySet::from_elf(elf_data);
@@ -190,6 +190,7 @@ impl ProcessControlBlock{
         trap_cx.x[11] = argv_base;
         *task_inner.get_trap_cx() = trap_cx;
     }
+
      /// Only support processes with a single thread.
      pub fn fork(self: &Arc<Self>) -> Arc<Self> {
         let mut parent = self.acquire_inner_lock();

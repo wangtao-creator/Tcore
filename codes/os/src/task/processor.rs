@@ -1,6 +1,6 @@
 // #![feature(llvm_asm)]
 // #[macro_use]
-use super::{TaskControlBlock, RUsage};
+use super::{ProcessControlBlock,TaskControlBlock, RUsage};
 use alloc::sync::Arc;
 use core::{borrow::Borrow, cell::RefCell};
 use lazy_static::*;
@@ -15,21 +15,14 @@ use crate::monitor::*;
 pub fn get_core_id() -> usize {
     let tp :usize = get_core_id();
     unsafe {
-        llvm_asm!("mv $0,tp" : "r"(tp));
+        llvm_asm!("mv $0,tp" : "=r"(tp));
     }
     //tp
     0
 }
 
 
-
 pub struct Processor {
-    inner: RefCell<ProcessorInner>,
-}
-
-unsafe impl Sync for Processor {}
-
-struct ProcessorInner {
     current: Option<Arc<TaskControlBlock>>,
     idle_task_cx_ptr: usize,
     user_clock: usize,  /* Timer usec when last enter into the user program */
@@ -39,35 +32,33 @@ struct ProcessorInner {
 impl Processor {
     pub fn new() -> Self {
         Self {
-            inner: RefCell::new(ProcessorInner {
                 current: None,
                 idle_task_cx_ptr: 0,
                 user_clock: 0,  
                 kernel_clock: 0,
-            }),
         }
     }
 
     // when trap return to user program, use this func to update user clock
     pub fn update_user_clock(& self){
-        self.inner.borrow_mut().user_clock = get_time_us();
+        self.user_clock = get_time_us();
     }
     
     // when trap into kernel, use this func to update kernel clock
     pub fn update_kernel_clock(& self){
-        self.inner.borrow_mut().kernel_clock = get_time_us();
+        self.kernel_clock = get_time_us();
     }
 
     pub fn get_user_clock(& self) -> usize{
-        return self.inner.borrow().user_clock;
+        return self.user_clock;
     }
 
     pub fn get_kernel_clock(& self) -> usize{
-        return self.inner.borrow().kernel_clock;
+        return self.kernel_clock;
     }
 
     fn get_idle_task_cx_ptr2(&self) -> *const usize {
-        let inner = self.inner.borrow();
+        let inner = self.idle_task_cx_ptr;
         &inner.idle_task_cx_ptr as *const usize
     }
     pub fn run(&self) {
@@ -88,7 +79,7 @@ impl Processor {
                     task_inner.task_status = TaskStatus::Running;
                     drop(task_inner);
                     // release
-                    self.inner.borrow_mut().current = Some(task);
+                    self.current = Some(task);
                     ////////// current task  /////////
                     // update RUsage of process
                     // let ru_stime = get_kernel_runtime_usec();
@@ -109,7 +100,7 @@ impl Processor {
                 }
                 else{
                     drop(current_task_inner);
-                    self.inner.borrow_mut().current = Some(current_task);
+                    self.current = Some(current_task);
                     unsafe {
                         __switch(
                             idle_task_cx_ptr2,
@@ -130,7 +121,7 @@ impl Processor {
                     task_inner.memory_set.activate();// change satp
                     // release
                     drop(task_inner);
-                    self.inner.borrow_mut().current = Some(task);
+                    self.current = Some(task);
                     unsafe {
                         __switch(
                             idle_task_cx_ptr2,
@@ -141,11 +132,11 @@ impl Processor {
             }
         }
     }
-    pub fn take_current(&self) -> Option<Arc<TaskControlBlock>> {
-        self.inner.borrow_mut().current.take()
+     pub fn take_current(&self) -> Option<Arc<TaskControlBlock>> {
+        self.current.take()
     }
     pub fn current(&self) -> Option<Arc<TaskControlBlock>> {
-        self.inner.borrow().current.as_ref().map(|task| Arc::clone(task))
+        self.current.as_ref().map(|task| Arc::clone(task))
     }
 }
 
@@ -167,6 +158,9 @@ pub fn current_task() -> Option<Arc<TaskControlBlock>> {
     let core_id: usize = get_core_id();
     PROCESSOR_LIST[core_id].current()
 }
+pub fn current_process() -> Arc<ProcessControlBlock> {
+    current_task().unwrap().process().upgrade().unwrap()
+}
 
 pub fn current_user_token() -> usize {
     // let core_id: usize = get_core_id();
@@ -177,11 +171,6 @@ pub fn current_user_token() -> usize {
 
 pub fn current_trap_cx() -> &'static mut TrapContext {
     current_task().unwrap().acquire_inner_lock().get_trap_cx()
-}
-
-pub fn print_core_info(){
-    println!( "[core{}] pid = {}", 0, PROCESSOR_LIST[0].current().unwrap().getpid() );
-    println!( "[core{}] pid = {}", 1, PROCESSOR_LIST[1].current().unwrap().getpid() );
 }
 
 // when trap return to user program, use this func to update user clock
