@@ -14,8 +14,3 @@ lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 riscv = { path = "../dependency/riscv", features = ["inline-asm"] }
 #os = {path = "../os"}
 
-[source.crates-io]
-replace-with = "vendored-sources"
-
-[source.vendored-sources]
-directory = "vendor"
