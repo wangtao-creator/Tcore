@@ -6,12 +6,13 @@ use lazy_static::*;
 // use alloc::sync::Arc;
 use crate::sync::UPSafeCell;
 
-type GpuDeviceImpl = virtio_gpu::VirtIOGPU;
+type GpuDeviceImpl = virtio_gpu::VirtIOGPUDev;
 lazy_static! {
     pub static ref GPU_DEVICE: UPSafeCell<GpuDeviceImpl> = unsafe{UPSafeCell::new((GpuDeviceImpl::new()))};
 }
 #[allow(unused)]
 pub fn gpu_device_test() {
+    println!("gpu device");
     let mut gpu_device = GPU_DEVICE.exclusive_access().gputest();;
     println!("gpu device test passed!");
 }

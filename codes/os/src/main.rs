@@ -112,6 +112,9 @@ pub fn rust_main() -> ! {
     println!("Tcore: interrupt initialized");
     fs::init_rootfs();
     println!("Tcore: fs initialized");
+
+    sys_gputest();
+
     task::add_initproc();
     println!("Tcore: task initialized");
     println!("Tcore: wake other cores");
@@ -119,6 +122,8 @@ pub fn rust_main() -> ! {
     sbi_send_ipi(&mask as *const usize as usize);
     //CORE2_FLAG.lock().set_in();
     //test();
+    
+    //loop{};
     println!("Tcore: run tasks");
     task::run_tasks();
     panic!("Unreachable in rust_main!");

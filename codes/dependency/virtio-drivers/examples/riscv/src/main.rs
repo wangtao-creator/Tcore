@@ -56,8 +56,10 @@ fn virtio_probe(node: &Node) {
         let paddr = reg.as_slice().read_be_u64(0).unwrap();
         let size = reg.as_slice().read_be_u64(8).unwrap();
         let vaddr = paddr;
+        
         info!("walk dt addr={:#x}, size={:#x}", paddr, size);
         let header = unsafe { &mut *(vaddr as *mut VirtIOHeader) };
+        //info!("device header wawawawawaw {:?}",header);
         info!(
             "Detected virtio device with vendor id {:#X}",
             header.vendor_id()
@@ -104,9 +106,9 @@ fn virtio_gpu(header: &'static mut VirtIOHeader) {
 }
 
 fn virtio_input(header: &'static mut VirtIOHeader) {
-    let mut event_buf = [0u64; 32];
+    //let mut event_buf = [0u64; 32];
     let mut _input =
-        VirtIOInput::new(header, &mut event_buf).expect("failed to create input driver");
+        VirtIOInput::new(header).expect("failed to create input driver");
     // loop {
     //     input.ack_interrupt().expect("failed to ack");
     //     info!("mouse: {:?}", input.mouse_xy());

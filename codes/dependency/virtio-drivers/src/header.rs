@@ -6,7 +6,6 @@ use volatile::{ReadOnly, Volatile, WriteOnly};
 ///
 /// Ref: 4.2.4 Legacy interface
 #[repr(C)]
-#[derive(Debug)]
 pub struct VirtIOHeader {
     /// Magic value
     magic: ReadOnly<u32>,
@@ -17,7 +16,7 @@ pub struct VirtIOHeader {
     version: ReadOnly<u32>,
 
     /// Virtio Subsystem Device ID
-    device_id: ReadOnly<u32>,
+    pub device_id: ReadOnly<u32>,
 
     /// Virtio Subsystem Vendor ID
     vendor_id: ReadOnly<u32>,

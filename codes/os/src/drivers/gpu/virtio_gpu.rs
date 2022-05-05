@@ -26,12 +26,10 @@ pub trait GpuDevice: Send + Sync + Any {
     fn flush(&mut self);
 }
 
-pub struct VirtIOGPU(Mutex<UPSafeCell<VirtIOGpu<'static>>>);
+pub struct VirtIOGPUDev(Mutex<VirtIOGpu<'static>>);
 
-lazy_static! {
-    static ref QUEUE_FRAMES: Mutex<Vec<FrameTracker>> = Mutex::new(Vec::new());
-}
-impl GpuDevice for VirtIOGPU {
+
+impl GpuDevice for VirtIOGPUDev {
     fn gputest(&mut self) {
          match self.setup_framebuffer(|fb:&mut [u8]|{
             for y in 0..768 {
@@ -59,24 +57,27 @@ impl GpuDevice for VirtIOGPU {
     }
 
     fn flush(&mut self) {
-        if let mut vg = self.0.lock().exclusive_access(){
+        if let mut vg = self.0.lock(){
             vg.flush().expect("fail to flush");
         }else{
             println!("fail to flush");
         }
     }
 }
-impl VirtIOGPU {
+impl VirtIOGPUDev {
+    
     #[allow(unused)]
     pub fn new() -> Self {
-        let vg = Self(unsafe{Mutex::new(UPSafeCell::new(
-            VirtIOGpu::new(unsafe { &mut *(VIRTIO1 as *mut VirtIOHeader) })
-                .expect("failed to create gpu driver"),
-        ))});
+        println!("begin new");
+        let vg = Self(Mutex::new(VirtIOGpu::new(
+            unsafe { &mut *(VIRTIO1 as *mut VirtIOHeader) }
+        ).unwrap()));
+        
+        println!("new finish");
         vg
     }
     pub fn setup_framebuffer(&mut self,f: impl FnOnce(&mut [u8]) -> Result) -> Result {
-        if let Ok(fb) =self.0.get_mut().exclusive_access().setup_framebuffer(){
+        if let Ok(fb) =self.0.lock().setup_framebuffer(){
             f(fb)
         }else{
             println!("fail to get framebuffer");    
