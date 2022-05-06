@@ -1,7 +1,7 @@
 # Building
 TARGET := riscv64imac-unknown-none-elf
 MODE := release
-KERNEL_ELF := target/$(TARGET)/$(MODE)/UltraOS
+KERNEL_ELF := target/$(TARGET)/$(MODE)/tCore
 KERNEL_BIN := $(KERNEL_ELF).bin
 DISASM_TMP := target/$(TARGET)/$(MODE)/asm
 FS_IMG := ../user/target/$(TARGET)/$(MODE)/fs.img

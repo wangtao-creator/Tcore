@@ -1,6 +1,6 @@
 // #![feature(llvm_asm)]
 // #[macro_use]
-use super::{ProcessControlBlock,TaskControlBlock, RUsage};
+use super::{ProcessControlBlock, TaskContext,TaskControlBlock, RUsage};
 use alloc::sync::Arc;
 use core::{borrow::Borrow, cell::RefCell};
 use lazy_static::*;
@@ -24,7 +24,7 @@ pub fn get_core_id() -> usize {
 
 pub struct Processor {
     current: Option<Arc<TaskControlBlock>>,
-    idle_task_cx_ptr: usize,
+    idle_task_cx: TaskContext,
     user_clock: usize,  /* Timer usec when last enter into the user program */
     kernel_clock: usize, /* Timer usec when user program traps into the kernel*/
 }
@@ -33,7 +33,7 @@ impl Processor {
     pub fn new() -> Self {
         Self {
                 current: None,
-                idle_task_cx_ptr: 0,
+                idle_task_cx: TaskContext::zero_init(),
                 user_clock: 0,  
                 kernel_clock: 0,
         }
@@ -57,78 +57,28 @@ impl Processor {
         return self.kernel_clock;
     }
 
-    fn get_idle_task_cx_ptr2(&self) -> *const usize {
-        let inner = self.idle_task_cx_ptr;
-        &inner.idle_task_cx_ptr as *const usize
+    fn get_idle_task_cx_ptr(&mut self) -> *mut TaskContext {
+        &mut self.idle_task_cx as *mut _
     }
     pub fn run(&self) {
         loop{
-            // True: Not first time to fetch a task 
-            if let Some(current_task) = take_current_task(){
-                gdb_print!(PROCESSOR_ENABLE,"[hart {} run:pid{}]", get_core_id(), current_task.pid.0);
-                let mut current_task_inner = current_task.acquire_inner_lock();
-                //println!("get lock");
-                let task_cx_ptr2 = current_task_inner.get_task_cx_ptr2();
-                let idle_task_cx_ptr2 = self.get_idle_task_cx_ptr2();
-                // True: switch
-                // False: return to current task, don't switch
-                if let Some(task) = fetch_task() {
-                    let mut task_inner = task.acquire_inner_lock();
-                    task_inner.memory_set.activate();// change satp
-                    let next_task_cx_ptr2 = task_inner.get_task_cx_ptr2();
-                    task_inner.task_status = TaskStatus::Running;
-                    drop(task_inner);
-                    // release
-                    self.current = Some(task);
-                    ////////// current task  /////////
-                    // update RUsage of process
-                    // let ru_stime = get_kernel_runtime_usec();
-                    // update_kernel_clock();
-                    // current_task_inner.rusage.add_stime(ru_stime);
-
-                    // Change status to Ready
-                    current_task_inner.task_status = TaskStatus::Ready;
-                    drop(current_task_inner);
-                    add_task(current_task);
-                    ////////// current task  /////////
-                    unsafe {
-                        __switch(
-                            idle_task_cx_ptr2,
-                            next_task_cx_ptr2,
-                        );
-                    }
+            
+            if let Some(task) = fetch_task() {
+                let idle_task_cx_ptr = self.get_idle_task_cx_ptr();
+                // access coming task TCB exclusively
+                let mut task_inner = task.acquire_inner_lock();
+                let next_task_cx_ptr = &task_inner.task_cx as *const TaskContext;
+                task_inner.task_status = TaskStatus::Running;
+                drop(task_inner);
+                // release coming task TCB manually
+                processor.current = Some(task);
+                // release processor manually
+                drop(processor);
+                unsafe {
+                    __switch(idle_task_cx_ptr, next_task_cx_ptr);
                 }
-                else{
-                    drop(current_task_inner);
-                    self.current = Some(current_task);
-                    unsafe {
-                        __switch(
-                            idle_task_cx_ptr2,
-                            task_cx_ptr2,
-                        );
-                    }
-                }
-            // False: First time to fetch a task
             } else {
-                // Keep fetching
-                gdb_print!(PROCESSOR_ENABLE,"[run:no current task]");
-                if let Some(task) = fetch_task() {
-                    // acquire
-                    let idle_task_cx_ptr2 = self.get_idle_task_cx_ptr2();
-                    let mut task_inner = task.acquire_inner_lock();
-                    let next_task_cx_ptr2 = task_inner.get_task_cx_ptr2();
-                    task_inner.task_status = TaskStatus::Running;
-                    task_inner.memory_set.activate();// change satp
-                    // release
-                    drop(task_inner);
-                    self.current = Some(task);
-                    unsafe {
-                        __switch(
-                            idle_task_cx_ptr2,
-                            next_task_cx_ptr2,
-                        );
-                    }
-                }
+                println!("no tasks available in run_tasks");
             }
         }
     }
@@ -159,13 +109,15 @@ pub fn current_task() -> Option<Arc<TaskControlBlock>> {
     PROCESSOR_LIST[core_id].current()
 }
 pub fn current_process() -> Arc<ProcessControlBlock> {
-    current_task().unwrap().process().upgrade().unwrap()
+    current_task().unwrap().process.upgrade().unwrap()
 }
+
+
 
 pub fn current_user_token() -> usize {
     // let core_id: usize = get_core_id();
     let task = current_task().unwrap();
-    let token = task.acquire_inner_lock().get_user_token();
+    let token = task.get_user_token();
     token
 }
 
@@ -198,12 +150,10 @@ pub fn get_kernel_runtime_usec() -> usize{
 }
 
 
-pub fn schedule(switched_task_cx_ptr2: *const usize) {
+pub fn schedule(switched_task_cx_ptr: *mut TaskContext) {
     let core_id: usize = get_core_id();
-    let idle_task_cx_ptr2 = PROCESSOR_LIST[core_id].get_idle_task_cx_ptr2();
+    let idle_task_cx_ptr= PROCESSOR_LIST[core_id].get_idle_task_cx_ptr();
     unsafe {
-        __switch(
-            switched_task_cx_ptr2,
-            idle_task_cx_ptr2,
-        );
+        __switch(switched_task_cx_ptr, idle_task_cx_ptr);
     }
+}

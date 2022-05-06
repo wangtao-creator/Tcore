@@ -104,21 +104,21 @@ pub fn rust_main() -> ! {
     clear_bss();
     mm::init();
     mm::remap_test();
-    println!("Tcore: memory initialized");
+    println!("tCore: memory initialized");
     trap::init();
     trap::enable_timer_interrupt();
     timer::set_next_trigger();
-    println!("Tcore: interrupt initialized");
+    println!("tCore: interrupt initialized");
     fs::init_rootfs();
-    println!("Tcore: fs initialized");
+    println!("tCore: fs initialized");
     task::add_initproc();
-    println!("Tcore: task initialized");
-    println!("Tcore: wake other cores");
+    println!("tCore: task initialized");
+    println!("tCore: wake other cores");
     let mask: usize = 1 << 1;
     sbi_send_ipi(&mask as *const usize as usize);
     CORE2_FLAG.lock().set_in();
     test();
-    println!("Tcore: run tasks");
+    println!("tCore: run tasks");
     task::run_tasks();
     panic!("Unreachable in rust_main!");
 }

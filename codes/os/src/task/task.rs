@@ -4,7 +4,7 @@ use crate::trap::TrapContext;
 use crate::{mm::PhysPageNum, spin::Mutex};
 use alloc::sync::{Arc, Weak};
 use core::cell::RefMut;
-
+use spin::{Mutex, MutexGuard};
 pub struct TaskControlBlock {
     // immutable
     pub process: Weak<ProcessControlBlock>,
@@ -14,7 +14,7 @@ pub struct TaskControlBlock {
 }
 
 impl TaskControlBlock {
-    pub fn acquire_inner_lock(&self) -> RefMut<'_, TaskControlBlockInner> {
+    pub fn acquire_inner_lock(&self) -> MutexGuard<TaskControlBlockInner> {
         self.inner.lock()
     }
 

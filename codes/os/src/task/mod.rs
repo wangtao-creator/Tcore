@@ -5,7 +5,6 @@ mod process;
 mod processor;
 mod info;
 mod switch;
-#[allow(clippy::module_inception)]
 mod task;
 
 use crate::fs::{open_file, OpenFlags};
@@ -122,7 +121,7 @@ pub fn check_signals_of_current() -> Option<(i32, &'static str)> {
     process_inner.signals.check_error()
 }
 
-pub fn current_add_signal(signal: Signal) {
+pub fn current_add_signal(signal: Signals) {
     let process = current_process();
     let mut process_inner = process.acquire_inner_lock();
     process_inner.signals |= signal;

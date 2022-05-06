@@ -70,7 +70,7 @@ impl ProcessControlBlockInner {
 
 
 impl ProcessControlBlock{
-    pub fn acquire_inner_lock(&self) ->RefMut<'_,ProcessControlBlockInner>{
+    pub fn acquire_inner_lock(&self) ->MutexGuard<ProcessControlBlockInner>{
         self.inner.lock()
     }
     pub fn new (elf_data:&[u8])->Arc<Self>{
@@ -252,7 +252,7 @@ impl ProcessControlBlock{
         add_task(task);
         child
     }
-
+    
     pub fn getpid(&self) -> usize {
         self.pid.0
     }
