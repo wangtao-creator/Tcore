@@ -1,10 +1,29 @@
 use super::id::TaskUserRes;
 use super::{kstack_alloc, KernelStack, ProcessControlBlock, TaskContext};
 use crate::trap::TrapContext;
-use crate::{mm::PhysPageNum, spin::Mutex};
+use crate::mm::PhysPageNum;
 use alloc::sync::{Arc, Weak};
 use core::cell::RefMut;
 use spin::{Mutex, MutexGuard};
+use super::{PidHandle, pid_alloc,};
+use crate::fs::{ FileDescripter, Stdin, Stdout, FileClass};
+use crate::syscall::FD_LIMIT;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::fmt::{self, Debug, Formatter};
+
+pub struct AuxHeader{
+    pub aux_type: usize,
+    pub value: usize,
+}
+
+impl Debug for AuxHeader {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!("AuxHeader: type:{} value:0x{:X}", self.aux_type, self.value))
+    }
+}
+
+
 pub struct TaskControlBlock {
     // immutable
     pub process: Weak<ProcessControlBlock>,
@@ -31,6 +50,7 @@ pub struct TaskControlBlockInner {
     pub task_cx: TaskContext,
     pub task_status: TaskStatus,
     pub exit_code: Option<i32>,
+   
 }
 
 impl TaskControlBlockInner {

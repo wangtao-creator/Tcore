@@ -67,19 +67,19 @@ pub fn sys_get_time_of_day(time: *mut u64) -> isize {
 }
 
 
-pub fn sys_getrusage(who: isize, usage: *mut u8) -> isize {
-    if who != RUSAGE_SELF {
-        panic!("sys_getrusage: \"who\" not supported!");
-        return -1;
-    }
-    let task = current_task().unwrap();
-    let token = current_user_token();
-    let mut userbuf = UserBuffer::new(translated_byte_buffer(token, usage, core::mem::size_of::<RUsage>()));
-    let rusage = &task.acquire_inner_lock().rusage;
-    userbuf.write(rusage.as_bytes());
-    gdb_println!(SYSCALL_ENABLE, "sys_getrusage(who: {}, usage: {:?}) = {}", who, rusage, 0);
-    0
-}
+// pub fn sys_getrusage(who: isize, usage: *mut u8) -> isize {
+//     if who != RUSAGE_SELF {
+//         panic!("sys_getrusage: \"who\" not supported!");
+//         return -1;
+//     }
+//     let task = current_task().unwrap();
+//     let token = current_user_token();
+//     let mut userbuf = UserBuffer::new(translated_byte_buffer(token, usage, core::mem::size_of::<RUsage>()));
+//     let rusage = &task.acquire_inner_lock().rusage;
+//     userbuf.write(rusage.as_bytes());
+//     gdb_println!(SYSCALL_ENABLE, "sys_getrusage(who: {}, usage: {:?}) = {}", who, rusage, 0);
+//     0
+// }
 
 pub fn sys_uname(buf: *mut u8) -> isize {
     // let uname = utsname {
@@ -146,176 +146,154 @@ pub fn sys_clock_get_time(clk_id: usize, tp: *mut u64) -> isize{
 }
 
 // @Arg: value: ITimerVal pointer
-pub fn sys_getitimer(which: isize, curr_value: *mut u8) -> isize{
-    // pub struct ITimerVal{
-    //     it_interval: TimeVal, /* Interval for periodic timer */
-    //     it_value: TimeVal,    /* Time until next expiration */
-    // }
-    // pub struct TimeVal{
-    //     sec: usize,
-    //     usec: usize,
-    // }
-    let token = current_user_token();
-    if curr_value as usize != 0{
-        let mut itimer = current_task().unwrap().acquire_inner_lock().itimer;
-        let mut buf_vec = translated_byte_buffer(token, curr_value, size_of::<ITimerVal>());
-        // 使用UserBuffer结构，以便于跨页读写
-        let mut userbuf = UserBuffer::new(buf_vec);
-        if !itimer.is_zero(){
-            itimer.it_value = itimer.it_value - get_timeval();
-        }
-        userbuf.write(itimer.as_bytes());
-        gdb_println!(SYSCALL_ENABLE, "sys_getitimer(which: {}, curr_value: {:?}) = {},", which, itimer, 0);
+// pub fn sys_getitimer(which: isize, curr_value: *mut u8) -> isize{
+//     // pub struct ITimerVal{
+//     //     it_interval: TimeVal, /* Interval for periodic timer */
+//     //     it_value: TimeVal,    /* Time until next expiration */
+//     // }
+//     // pub struct TimeVal{
+//     //     sec: usize,
+//     //     usec: usize,
+//     // }
+//     let token = current_user_token();
+//     if curr_value as usize != 0{
+//         let mut itimer = current_task().unwrap().acquire_inner_lock().itimer;
+//         let mut buf_vec = translated_byte_buffer(token, curr_value, size_of::<ITimerVal>());
+//         // 使用UserBuffer结构，以便于跨页读写
+//         let mut userbuf = UserBuffer::new(buf_vec);
+//         if !itimer.is_zero(){
+//             itimer.it_value = itimer.it_value - get_timeval();
+//         }
+//         userbuf.write(itimer.as_bytes());
+//         gdb_println!(SYSCALL_ENABLE, "sys_getitimer(which: {}, curr_value: {:?}) = {},", which, itimer, 0);
 
-        0
-    }
-    else{
-        gdb_println!(SYSCALL_ENABLE, "sys_getitimer(which: {}, curr_value: {}) = {},", which, 0, 0);
-        -1
-    }
-}
+//         0
+//     }
+//     else{
+//         gdb_println!(SYSCALL_ENABLE, "sys_getitimer(which: {}, curr_value: {}) = {},", which, 0, 0);
+//         -1
+//     }
+// }
 
 // @Arg: value: ITimerVal pointer
-pub fn sys_setitimer(which: isize, new_value: *mut usize, old_value: *mut u8) -> isize{
-    let token = current_user_token();
-    let mut itimer_old = ITimerVal::new();
-    if old_value as usize != 0{
-        let mut itimer = current_task().unwrap().acquire_inner_lock().itimer;
-        let mut buf_vec = translated_byte_buffer(token, old_value, size_of::<ITimerVal>());
-        // 使用UserBuffer结构，以便于跨页读写
-        let mut userbuf = UserBuffer::new(buf_vec);
-        if !itimer.is_zero(){
-            itimer.it_value = itimer.it_value - get_timeval();
-        }
-        itimer_old = itimer;
-        userbuf.write(itimer.as_bytes());
-    }
-    let mut itimer = ITimerVal::new();
-    itimer.it_interval.sec = *translated_refmut(token, new_value); 
-    itimer.it_interval.usec = *translated_refmut(token, unsafe{new_value.add(1)}); 
-    itimer.it_value.sec = *translated_refmut(token, unsafe{new_value.add(2)}); 
-    itimer.it_value.usec = *translated_refmut(token, unsafe{new_value.add(3)}); 
-    gdb_println!(SYSCALL_ENABLE, "sys_setitimer(which: {}, new_value: {:?}, old_value: {:?}) = {}", which, itimer, itimer_old, 0);
-    if !itimer.it_value.is_zero(){
-        itimer.it_value = itimer.it_value + get_timeval();
-    }
-    current_task().unwrap().acquire_inner_lock().itimer = itimer;
-    0
-}
+// pub fn sys_setitimer(which: isize, new_value: *mut usize, old_value: *mut u8) -> isize{
+//     let token = current_user_token();
+//     let mut itimer_old = ITimerVal::new();
+//     if old_value as usize != 0{
+//         let mut itimer = current_task().unwrap().acquire_inner_lock().itimer;
+//         let mut buf_vec = translated_byte_buffer(token, old_value, size_of::<ITimerVal>());
+//         // 使用UserBuffer结构，以便于跨页读写
+//         let mut userbuf = UserBuffer::new(buf_vec);
+//         if !itimer.is_zero(){
+//             itimer.it_value = itimer.it_value - get_timeval();
+//         }
+//         itimer_old = itimer;
+//         userbuf.write(itimer.as_bytes());
+//     }
+//     let mut itimer = ITimerVal::new();
+//     itimer.it_interval.sec = *translated_refmut(token, new_value); 
+//     itimer.it_interval.usec = *translated_refmut(token, unsafe{new_value.add(1)}); 
+//     itimer.it_value.sec = *translated_refmut(token, unsafe{new_value.add(2)}); 
+//     itimer.it_value.usec = *translated_refmut(token, unsafe{new_value.add(3)}); 
+//     gdb_println!(SYSCALL_ENABLE, "sys_setitimer(which: {}, new_value: {:?}, old_value: {:?}) = {}", which, itimer, itimer_old, 0);
+//     if !itimer.it_value.is_zero(){
+//         itimer.it_value = itimer.it_value + get_timeval();
+//     }
+//     current_task().unwrap().acquire_inner_lock().itimer = itimer;
+//     0
+// }
 
-// int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
-pub fn sys_sigaction(signum: isize, act :*mut usize, oldact: *mut usize) -> isize{
-    // print!("[sys_sigaction oldact = *0x{:X}]", oldact as usize);
-    // pub struct SigAction {
-    //     sa_handler:usize,
-    //     sa_sigaction:usize,
-    //     sa_mask:Vec<Signals>,
-    //     sa_flags:SaFlags,
-    // }
-    let mut task = current_task().unwrap();
-    let token = current_user_token();
-    let signum = Signals::from_bits(1 << (signum-1)).unwrap();
-    // act old
-    let mut task_inner = task.acquire_inner_lock();
-    let mut sigaction_old = SigAction::new();
-    if let Some(sigaction) = task_inner.siginfo.signal_handler.remove(&signum){
-        if oldact as usize != 0{
-            sigaction_old = sigaction;
-            *translated_refmut(token, oldact) = sigaction_old.sa_handler;
-            *translated_refmut(token, unsafe{oldact.add(1)}) = sigaction_old.sa_flags.bits();
-            if sigaction_old.sa_mask.is_empty(){
-                *translated_refmut(token, unsafe{oldact.add(2)}) = 0;
-            }
-            else{
-                *translated_refmut(token, unsafe{oldact.add(2)}) = sigaction_old.sa_mask[0].bits();
-            }
-        }
-    }
-    else{
-        if oldact as usize != 0{
-            *translated_refmut(token, oldact) = 0;
-            *translated_refmut(token, unsafe{oldact.add(1)}) = 0;
-            *translated_refmut(token, unsafe{oldact.add(2)}) = 0;
-        }
-    }
-    // act new
-    if act as usize == 0{
-        gdb_println!(SYSCALL_ENABLE, "sys_sigaction(signum: {:?}, act: None, oldact: {:?} ) = {}", signum, sigaction_old, 0);
-        return 0;
-    }
-    let handler = *translated_refmut(token, act);
-    let flags = *translated_refmut(token, unsafe{act.add(1)});
-    let mask = *translated_refmut(token, unsafe{act.add(2)});
-    let mut sigaction_new = SigAction{
-        sa_handler:handler,
-        sa_mask:Vec::new(),
-        sa_flags:SaFlags::SA_RESTART,
-    };
-    if mask != 0 {
-        sigaction_new.sa_mask.push(Signals::from_bits(mask).unwrap());
-    }
-    // push to PCB
-    let sigaction_new_copy = sigaction_new.clone();
-    if !(handler == SIG_DFL || handler == SIG_IGN ){
-        task_inner.siginfo.signal_handler.insert(signum, sigaction_new);
-    }
-    if oldact as usize != 0{
-        gdb_println!(SYSCALL_ENABLE, "sys_sigaction(signum: {:?}, act: {:?}, oldact: {:?}) = {}", signum, sigaction_new_copy, sigaction_old, 0);
-    }
-    else{
-        gdb_println!(SYSCALL_ENABLE, "sys_sigaction(signum: {:?}, act: {:?}, oldact: None ) = {}", signum, sigaction_new_copy, 0);
-    }
-    0
-}
+// // int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
+// pub fn sys_sigaction(signum: isize, act :*mut usize, oldact: *mut usize) -> isize{
+//     // print!("[sys_sigaction oldact = *0x{:X}]", oldact as usize);
+//     // pub struct SigAction {
+//     //     sa_handler:usize,
+//     //     sa_sigaction:usize,
+//     //     sa_mask:Vec<Signals>,
+//     //     sa_flags:SaFlags,
+//     // }
+//     let mut task = current_task().unwrap();
+//     let token = current_user_token();
+//     let signum = Signals::from_bits(1 << (signum-1)).unwrap();
+//     // act old
+//     let mut task_inner = task.acquire_inner_lock();
+//     let mut sigaction_old = SigAction::new();
+//     if let Some(sigaction) = task_inner.signals.signal_handler.remove(&signum){
+//         if oldact as usize != 0{
+//             sigaction_old = sigaction;
+//             *translated_refmut(token, oldact) = sigaction_old.sa_handler;
+//             *translated_refmut(token, unsafe{oldact.add(1)}) = sigaction_old.sa_flags.bits();
+//             if sigaction_old.sa_mask.is_empty(){
+//                 *translated_refmut(token, unsafe{oldact.add(2)}) = 0;
+//             }
+//             else{
+//                 *translated_refmut(token, unsafe{oldact.add(2)}) = sigaction_old.sa_mask[0].bits();
+//             }
+//         }
+//     }
+//     else{
+//         if oldact as usize != 0{
+//             *translated_refmut(token, oldact) = 0;
+//             *translated_refmut(token, unsafe{oldact.add(1)}) = 0;
+//             *translated_refmut(token, unsafe{oldact.add(2)}) = 0;
+//         }
+//     }
+//     // act new
+//     if act as usize == 0{
+//         gdb_println!(SYSCALL_ENABLE, "sys_sigaction(signum: {:?}, act: None, oldact: {:?} ) = {}", signum, sigaction_old, 0);
+//         return 0;
+//     }
+//     let handler = *translated_refmut(token, act);
+//     let flags = *translated_refmut(token, unsafe{act.add(1)});
+//     let mask = *translated_refmut(token, unsafe{act.add(2)});
+//     let mut sigaction_new = SigAction{
+//         sa_handler:handler,
+//         sa_mask:Vec::new(),
+//         sa_flags:SaFlags::SA_RESTART,
+//     };
+//     if mask != 0 {
+//         sigaction_new.sa_mask.push(Signals::from_bits(mask).unwrap());
+//     }
+//     // push to PCB
+//     let sigaction_new_copy = sigaction_new.clone();
+//     if !(handler == SIG_DFL || handler == SIG_IGN ){
+//         task_inner.signals.signal_handler.insert(signum, sigaction_new);
+//     }
+//     if oldact as usize != 0{
+//         gdb_println!(SYSCALL_ENABLE, "sys_sigaction(signum: {:?}, act: {:?}, oldact: {:?}) = {}", signum, sigaction_new_copy, sigaction_old, 0);
+//     }
+//     else{
+//         gdb_println!(SYSCALL_ENABLE, "sys_sigaction(signum: {:?}, act: {:?}, oldact: None ) = {}", signum, sigaction_new_copy, 0);
+//     }
+//     0
+// }
 
-pub fn sys_sigreturn() -> isize{
-    // mark not processing signal handler
-    let current_task = current_task().unwrap();
-    gdb_println!(SYSCALL_ENABLE,"sys_sigreturn()(pid: {})", current_task.pid.0);
-    let mut inner = current_task.acquire_inner_lock();
-    assert_eq!(inner.siginfo.is_signal_execute, true);
-    inner.siginfo.is_signal_execute = false;
-    // restore trap_cx
-    let trap_cx = inner.get_trap_cx();
-    *trap_cx = inner.trapcx_backup.clone();
-    return trap_cx.x[10] as isize; //return a0: not modify any of trap_cx
-}
+// pub fn sys_sigreturn() -> isize{
+//     // mark not processing signal handler
+//     let current_task = current_task().unwrap();
+//     gdb_println!(SYSCALL_ENABLE,"sys_sigreturn()(pid: {})", current_task.pid.0);
+//     let mut inner = current_task.acquire_inner_lock();
+//     assert_eq!(inner.signals.is_signal_execute, true);
+//     inner.signals.is_signal_execute = false;
+//     // restore trap_cx
+//     let trap_cx = inner.get_trap_cx();
+//     *trap_cx = inner.trapcx_backup.clone();
+//     return trap_cx.x[10] as isize; //return a0: not modify any of trap_cx
+// }
 
 
 /// This function only supports sending signal to the calling process
-pub fn sys_kill(pid: isize, signal: isize) -> isize {
-    if pid <= 0 {
-        println!("[sys_kill]: pid <= 0 not support");
-        return 0;
-    }
-    if signal == 0{ // currently ignore capability check when signal == 0 
-        gdb_println!(SYSCALL_ENABLE,"sys_kill(pid: {}, signal: {}) = {}", pid, 0, 0);
-        return 0;
-    }
-    let pid = pid as usize;
-    let signal = Signals::from_bits(1 << (signal - 1)).unwrap();
-    let current_task = current_task().unwrap();
-    // send to self
-    if current_task.getpid() == pid {
-        let mut inner = current_task.acquire_inner_lock();
-        inner.add_signal(signal);
-        gdb_println!(SYSCALL_ENABLE,"sys_kill(pid: {}(self), signal: {:?}) = {}", pid, signal, 0);
-        return 0;
-    }
-    // send to child
-    // ATTENTION: May cause deadlock, so hold initproc to avoid.(just as what func "exit" does)
-    let mut initproc_inner = INITPROC.acquire_inner_lock();
-    let mut inner = current_task.acquire_inner_lock();
-    for child in inner.children.iter() {
-        if child.pid.0 == pid {
-            let mut child_inner = child.acquire_inner_lock();
-            child_inner.add_signal(signal);
-            gdb_println!(SYSCALL_ENABLE,"sys_kill(pid: {}(child), signal: {:?}) = {}", pid, signal, 0);
-            return 0;
+pub fn sys_kill(pid: usize, signal: u32) -> isize {
+    if let Some(process) = pid2process(pid) {
+        if let Some(flag) = SignalFlags::from_bits(signal) {
+            process.acquire_inner_lock().signals |= flag;
+            0
+        } else {
+            -1
         }
+    } else {
+        -1
     }
-    gdb_println!(SYSCALL_ENABLE,"sys_kill(pid: {}, signal: {:?}) = {}", pid, signal, -1);
-    -1
 }
 
 // pub fn sys_set_tid_address(tidptr: usize) -> isize {
@@ -325,7 +303,7 @@ pub fn sys_kill(pid: isize, signal: isize) -> isize {
 
 // For user, pid is tgid in kernel
 pub fn sys_getpid() -> isize {
-    current_task().unwrap().tgid as isize
+    current_task().unwrap().process.upgrade().unwrap().getpid() as isize
 }
 
 // For user, pid is tgid in kernel
@@ -357,25 +335,25 @@ pub fn sys_getegid() -> isize {
 //     current_task().unwrap().pid.0 as isize
 // }
 
-pub fn sys_sbrk(grow_size: isize, is_shrink: usize) -> isize {
-    let current_va = current_task().unwrap().grow_proc(grow_size) as isize;
-    current_va
-}
+// pub fn sys_sbrk(grow_size: isize, is_shrink: usize) -> isize {
+//     let current_va = current_task().unwrap().grow_proc(grow_size) as isize;
+//     current_va
+// }
 
-pub fn sys_brk(brk_addr: usize) -> isize{
-    let mut addr_new = 0;
-    if brk_addr == 0 {
-        addr_new = sys_sbrk(0, 0) as usize;
-    }
-    else{
-        let former_addr = current_task().unwrap().grow_proc(0);
-        let grow_size: isize = (brk_addr - former_addr) as isize;
-        addr_new = current_task().unwrap().grow_proc(grow_size);
-    }
+// pub fn sys_brk(brk_addr: usize) -> isize{
+//     let mut addr_new = 0;
+//     if brk_addr == 0 {
+//         addr_new = sys_sbrk(0, 0) as usize;
+//     }
+//     else{
+//         let former_addr = current_task().unwrap().grow_proc(0);
+//         let grow_size: isize = (brk_addr - former_addr) as isize;
+//         addr_new = current_task().unwrap().grow_proc(grow_size);
+//     }
     
-    gdb_println!(SYSCALL_ENABLE,"sys_brk(0x{:X}) = 0x{:X}", brk_addr, addr_new);
-    addr_new as isize
-}
+//     gdb_println!(SYSCALL_ENABLE,"sys_brk(0x{:X}) = 0x{:X}", brk_addr, addr_new);
+//     addr_new as isize
+// }
 
 //long clone(unsigned long flags, void *child_stack,
 //    int *ptid, int *ctid,
@@ -385,7 +363,7 @@ pub fn sys_fork() -> isize {
     let new_process = current_process.fork();
     let new_pid = new_process.getpid();
     // modify trap context of new_task, because it returns immediately after switching
-    let new_process_inner = new_process.acquire_inner_lock();
+    let new_process_inner = new_process.inner_exclusive_access();
     let task = new_process_inner.tasks[0].as_ref().unwrap();
     let trap_cx = task.inner_exclusive_access().get_trap_cx();
     // we do not have to move to next instruction since we have done it before
@@ -420,56 +398,56 @@ pub fn sys_exec(path: *const u8, mut args: *const usize) -> isize {
     }
 }
 
-pub fn sys_wait4(pid: isize, wstatus: *mut i32, option: isize) -> isize {
-    if option != 0 {
-        panic!{"Extended option not support yet..."};
-    }
+// pub fn sys_wait4(pid: isize, wstatus: *mut i32, option: isize) -> isize {
+//     if option != 0 {
+//         panic!{"Extended option not support yet..."};
+//     }
 
-    loop {
-        let task = current_task().unwrap();
-        let mut inner = task.acquire_inner_lock();
-        if inner.children
-            .iter()
-            .find(|p| {pid == -1 || pid as usize == p.getpid()})
-            .is_none() {
-            return -1;
-            // ---- release current PCB lock
-            }
-        let waited = inner.children
-            .iter()
-            .enumerate()
-            .find(|(_, p)| {
-                // ++++ temporarily hold child PCB lock
-                p.acquire_inner_lock().is_zombie() && (pid == -1 || pid as usize == p.getpid())
-                // ++++ release child PCB lock
-            });
-        if let Some((idx,_)) = waited {
-            let waited_child = inner.children.remove(idx);
-            // confirm that child will be deallocated after being removed from children list
-            // println!("[wait4]:pid {} child_pid {} ", task.pid.0, waited_child.getpid());
-            assert_eq!(Arc::strong_count(&waited_child), 1);
-            let found_pid = waited_child.getpid();
-            // ++++ temporarily hold child lock
-            let exit_code = waited_child.acquire_inner_lock().exit_code;
-            let ret_status = exit_code << 8;
-            if (wstatus as usize) != 0{
-                *translated_refmut(inner.memory_set.token(), wstatus) = ret_status;
-            }
-            // println!("=============The pid being waited is {}===================", pid);
-            // println!("=============The exit code of waiting_pid is {}===========", exit_code);
-            gdb_println!(SYSCALL_ENABLE, "sys_wait4(pid: {}, wstatus: {}, option: {}) = {}", pid, ret_status, option, found_pid);
-            return found_pid as isize;
-        } else {
-            drop(inner);
-            drop(task);
-            gdb_print!(BLANK_ENABLE," ");
-            //print!("\n");
-            //print!(" ");
-            suspend_current_and_run_next();
-            // continue;
-        }
-    }
-}
+//     loop {
+//         let task = current_task().unwrap();
+//         let mut inner = task.acquire_inner_lock();
+//         if inner.children
+//             .iter()
+//             .find(|p| {pid == -1 || pid as usize == p.getpid()})
+//             .is_none() {
+//             return -1;
+//             // ---- release current PCB lock
+//             }
+//         let waited = inner.children
+//             .iter()
+//             .enumerate()
+//             .find(|(_, p)| {
+//                 // ++++ temporarily hold child PCB lock
+//                 p.acquire_inner_lock().is_zombie() && (pid == -1 || pid as usize == p.getpid())
+//                 // ++++ release child PCB lock
+//             });
+//         if let Some((idx,_)) = waited {
+//             let waited_child = inner.children.remove(idx);
+//             // confirm that child will be deallocated after being removed from children list
+//             // println!("[wait4]:pid {} child_pid {} ", task.pid.0, waited_child.getpid());
+//             assert_eq!(Arc::strong_count(&waited_child), 1);
+//             let found_pid = waited_child.getpid();
+//             // ++++ temporarily hold child lock
+//             let exit_code = waited_child.acquire_inner_lock().exit_code;
+//             let ret_status = exit_code << 8;
+//             if (wstatus as usize) != 0{
+//                 *translated_refmut(inner.memory_set.token(), wstatus) = ret_status;
+//             }
+//             // println!("=============The pid being waited is {}===================", pid);
+//             // println!("=============The exit code of waiting_pid is {}===========", exit_code);
+//             gdb_println!(SYSCALL_ENABLE, "sys_wait4(pid: {}, wstatus: {}, option: {}) = {}", pid, ret_status, option, found_pid);
+//             return found_pid as isize;
+//         } else {
+//             drop(inner);
+//             drop(task);
+//             gdb_print!(BLANK_ENABLE," ");
+//             //print!("\n");
+//             //print!(" ");
+//             suspend_current_and_run_next();
+//             // continue;
+//         }
+//     }
+// }
 
 /// If there is not a child process whose pid is same as given, return -1.
 /// Else if there is a child process but it is still running, return -2.
@@ -488,7 +466,7 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
     }
     let pair = inner.children.iter().enumerate().find(|(_, p)| {
         // ++++ temporarily access child PCB exclusively
-        p.inner_exclusive_access().is_zombie && (pid == -1 || pid as usize == p.getpid())
+        p.acquire_inner_lock().is_zombie && (pid == -1 || pid as usize == p.getpid())
         // ++++ release child PCB
     });
     if let Some((idx, _)) = pair {
@@ -497,7 +475,7 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
         assert_eq!(Arc::strong_count(&child), 1);
         let found_pid = child.getpid();
         // ++++ temporarily access child PCB exclusively
-        let exit_code = child.inner_exclusive_access().exit_code;
+        let exit_code = child.acquire_inner_lock().exit_code;
         // ++++ release child PCB
         *translated_refmut(inner.memory_set.token(), exit_code_ptr) = exit_code;
         found_pid as isize
@@ -574,7 +552,7 @@ pub fn sys_prlimit(pid:usize, resource:i32, new_limit: *const RLimit, old_limit:
         if pid == 0 {
             current_task().unwrap()
         } else {
-            if let Some(tar_task) = find_task(pid) {
+            if let Some(tar_task) = fetch_task(pid) {
                 tar_task
             } else {
                 return -1

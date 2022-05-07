@@ -6,7 +6,8 @@ mod processor;
 mod info;
 mod switch;
 mod task;
-
+mod resource;
+pub use resource::RLimit;
 use crate::fs::{open, OpenFlags, DiskInodeType, File};
 use alloc::sync::Arc;
 use lazy_static::*;
@@ -17,12 +18,14 @@ use lazy_static::*;
 pub use context::TaskContext;
 pub use id::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
 pub use manager::{add_task, pid2process, remove_from_pid2process};
-pub use processor::{
-    current_kstack_top, current_process, current_task, current_trap_cx, current_trap_cx_user_va,
-    current_user_token, run_tasks, schedule, take_current_task,
-};
+pub use processor::*;
+pub use process::*;
 pub use info::Signals;
-pub use task::{TaskControlBlock, TaskStatus};
+pub use task::{TaskControlBlock, TaskStatus,AuxHeader};
+use alloc::vec;
+use alloc::vec::Vec;
+use crate::mm::{UserBuffer, add_free, translated_refmut};
+use crate::config::PAGE_SIZE;
 
 pub fn suspend_current_and_run_next() ->isize{
     // There must be an application running.

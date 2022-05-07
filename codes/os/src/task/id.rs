@@ -114,7 +114,7 @@ pub struct TaskUserRes {
 }
 
 fn trap_cx_bottom_from_tid(tid: usize) -> usize {
-    TRAP_CONTEXT_BASE - tid * PAGE_SIZE
+    TRAP_CONTEXT - tid * PAGE_SIZE
 }
 
 fn ustack_bottom_from_tid(ustack_base: usize, tid: usize) -> usize {

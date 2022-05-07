@@ -1,9 +1,8 @@
 use super::id::RecycleAllocator;
 use super::manager::insert_into_pid2process;
 use super::TaskControlBlock;
-use super::{add_task, Signal};
+use super::{add_task, Signals};
 use super::{pid_alloc, PidHandle};
-use super::{RLimit, TaskContext};
 use crate::mm::{translated_refmut, MemorySet, KERNEL_SPACE};
 use crate::trap::{trap_handler, TrapContext};
 use alloc::string::String;
@@ -11,9 +10,11 @@ use alloc::sync::{Arc, Weak};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefMut;
-use create::{syscall::FD_LIMIT,RLIMIT_NOFILE};
+use crate::syscall::FD_LIMIT;
 use crate::fs::{ FileDescripter , Stdin, Stdout};
-use spin::Mutex;
+use spin::{Mutex ,MutexGuard};
+use crate::config::*;
+use super::info::SigInfo;
 
 pub struct ProcessControlBlock{
     //immutable
@@ -31,9 +32,10 @@ pub struct ProcessControlBlockInner{
     pub children: Vec<Arc<ProcessControlBlock>>,
     pub exit_code: i32,
     pub fd_table: FdTable,
-    pub signals: Signal,
+    pub signals: SigInfo,
     pub tasks: Vec<Option<Arc<TaskControlBlock>>>,
     pub task_res_allocator: RecycleAllocator,
+    pub current_path: String,
 }
 
 impl ProcessControlBlockInner {
@@ -66,6 +68,11 @@ impl ProcessControlBlockInner {
     pub fn get_task(&self, tid: usize) -> Arc<TaskControlBlock> {
         self.tasks[tid].as_ref().unwrap().clone()
     }
+
+    pub fn get_work_path(&self)->String{
+        self.current_path.clone()
+    }
+    
 }
 
 
@@ -81,7 +88,7 @@ impl ProcessControlBlock{
         let (memory_set,ustack_base,entry_point) =MemorySet::from_elf(elf_data);
         //alloc  a pid  
         let pid_handle = pid_alloc();
-        let process  = Arc::new(Self) {
+        let process  = Arc::new(Self{
             pid : pid_handle,
             inner :Mutex::new(ProcessControlBlockInner{
                 is_zombie : false,
@@ -106,14 +113,13 @@ impl ProcessControlBlock{
                         FileClass::Abstr(Arc::new(Stdout)) 
                     )),
                 ],
-                current_path: String::from("/"), // 只有initproc在此建立，其他进程均为fork出
-                //should we use it
+                //current_path: String::from("/"), // 只有initproc在此建立，其他进程均为fork出
                 //resource_list: [RLimit::new();17],
                 signals:Signal::empty(),
                 tasks:Vec::new(),
-                task_res_allocator :RecycleAllocator::new(),
-            }),
-        };
+                task_res_allocator :RecycleAllocator::new(), 
+            })
+        });
         //create a main thread ,we should alloc ustack and trap_cx header
         let task = Arc::new(TaskControlBlock::new(
             Arc::clone(&process),
@@ -142,11 +148,12 @@ impl ProcessControlBlock{
         add_task(task);
         process
     }
-    pub fn exec(self : &Arc<self>,elf_data:&[u8],args:Vec<String>)-> {
+
+    pub fn exec(self : &Arc<self>,elf_data:&[u8],args:Vec<String>){
         assert_eq!(self.inner.lock().thread.count(),0);
         //memory_set with elf program headers/trampoline/trap context/user stack
         let (memory_set,user_stack,entry_point)  = MemorySet::from_elf(elf_data);
-        let new token  =  memory_set.token();
+        let new_token  =  memory_set.token();
         //substitute memory_set
         self.acquire_inner_lock().memory_set = memory_set;
          // then we alloc user resource for main thread again
@@ -254,8 +261,7 @@ impl ProcessControlBlock{
         // add this thread to scheduler
         add_task(task);
         child
-    }
-    
+    } 
 }
         
 

@@ -19,20 +19,7 @@ use crate::mm::{
     print_free_pages,
 };
 use crate::syscall::{syscall, test};
-use crate::task::{
-    exit_current_and_run_next,
-    suspend_current_and_run_next,
-    current_user_token,
-    current_trap_cx,
-    get_core_id,
-    current_task,
-    update_user_clock, 
-    update_kernel_clock, 
-    get_user_runtime_usec, 
-    get_kernel_runtime_usec,
-    Signals,
-    perform_signal_handler,
-};
+use crate::task::*;
 use crate::timer::set_next_trigger;
 use crate::config::{TRAP_CONTEXT, TRAMPOLINE, USER_STACK_SIZE};
 use crate::gdb_print;
@@ -132,14 +119,13 @@ pub fn trap_handler() -> ! {
             let task = current_task().unwrap();
             // println!{"pinLoadFault"}
             //println!("prev syscall = {}", G_SATP.lock().get_syscall());
-            /*
-            println!(
+            /*println!(
                 "[kernel] {:?} in application-{}, bad addr = {:#x}, bad instruction = {:#x}, core dumped.",
                 scause.cause(),
                 task.pid.0,
                 stval,
                 current_trap_cx().sepc,
-            );\
+            );
             */
             drop(task);
             // page fault exit code
