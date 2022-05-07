@@ -62,7 +62,8 @@ impl Processor {
     }
     pub fn run(&self) {
         loop{
-            
+            let core_id=get_core_id();
+            let mut processor = PROCESSOR_LIST[core_id];
             if let Some(task) = fetch_task() {
                 let idle_task_cx_ptr = self.get_idle_task_cx_ptr();
                 // access coming task TCB exclusively

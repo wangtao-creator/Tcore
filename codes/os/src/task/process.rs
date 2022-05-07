@@ -11,7 +11,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefMut;
 use crate::syscall::FD_LIMIT;
-use crate::fs::{ FileDescripter , Stdin, Stdout};
+use crate::fs::{ FileDescripter,Stdin, Stdout,FileClass};
 use spin::{Mutex ,MutexGuard};
 use crate::config::*;
 use super::info::SigInfo;
@@ -32,7 +32,7 @@ pub struct ProcessControlBlockInner{
     pub children: Vec<Arc<ProcessControlBlock>>,
     pub exit_code: i32,
     pub fd_table: FdTable,
-    pub signals: SigInfo,
+    pub signals: Signals,
     pub tasks: Vec<Option<Arc<TaskControlBlock>>>,
     pub task_res_allocator: RecycleAllocator,
     pub current_path: String,
@@ -115,7 +115,7 @@ impl ProcessControlBlock{
                 ],
                 //current_path: String::from("/"), // 只有initproc在此建立，其他进程均为fork出
                 //resource_list: [RLimit::new();17],
-                signals:Signal::empty(),
+                signals:Signals::empty(),
                 tasks:Vec::new(),
                 task_res_allocator :RecycleAllocator::new(), 
             })
@@ -149,10 +149,10 @@ impl ProcessControlBlock{
         process
     }
 
-    pub fn exec(self : &Arc<self>,elf_data:&[u8],args:Vec<String>){
+    pub fn exec(self: &Arc<Self>,elf_data:&[u8],args:Vec<String>){
         assert_eq!(self.inner.lock().thread.count(),0);
         //memory_set with elf program headers/trampoline/trap context/user stack
-        let (memory_set,user_stack,entry_point)  = MemorySet::from_elf(elf_data);
+        let (memory_set,ustack_base,entry_point)  = MemorySet::from_elf(elf_data);
         let new_token  =  memory_set.token();
         //substitute memory_set
         self.acquire_inner_lock().memory_set = memory_set;
@@ -228,7 +228,7 @@ impl ProcessControlBlock{
                     children: Vec::new(),
                     exit_code: 0,
                     fd_table: new_fd_table,
-                    signals: Signal::empty(),
+                    signals: Signals::empty(),
                     tasks: Vec::new(),
                 }),
         });

@@ -11,8 +11,8 @@ pub use resource::RLimit;
 use crate::fs::{open, OpenFlags, DiskInodeType, File};
 use alloc::sync::Arc;
 use lazy_static::*;
-use manager::fetch_task;
-use process::ProcessControlBlock;
+pub use manager::fetch_task;
+pub use process::ProcessControlBlock;
 use switch::__switch;
 use lazy_static::*;
 pub use context::TaskContext;
@@ -20,7 +20,7 @@ pub use id::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
 pub use manager::{add_task, pid2process, remove_from_pid2process};
 pub use processor::*;
 pub use process::*;
-pub use info::Signals;
+pub use info::{Signals,TimeVal,utsname,SIG_DFL};
 pub use task::{TaskControlBlock, TaskStatus,AuxHeader};
 use alloc::vec;
 use alloc::vec::Vec;
@@ -231,4 +231,21 @@ pub fn current_add_signal(signal: Signals) {
     let process = current_process();
     let mut process_inner = process.acquire_inner_lock();
     process_inner.signals |= signal;
+}
+// if there is unhandled signal, it will automatic change trap_cx which makes it unseen in codes outside the func
+pub fn perform_signal_handler(){
+    let current_task = current_task().unwrap();
+    // if current_task.pid.0 == 4{print!("[pid 4 1]");}
+    // mask all the signals when processing signal handler
+    if !current_task.is_signal_execute() && !current_task.acquire_inner_lock().siginfo.signal_pending.is_empty(){
+        // if current_task.pid.0 == 4{print!("[pid 4 2]");}
+        if let Some((signal, handler)) = current_task.scan_signal_handler(){
+            // if current_task.pid.0 == 4{print!("[pid 4 3]");}
+            if (signal == Signals::SIGTERM || signal == Signals::SIGKILL) && handler == SIG_DFL {
+                // if current_task.pid.0 == 4{print!("[pid 4 4]");}
+                drop(current_task);
+                exit_current_and_run_next(log2(signal.bits()) as i32);
+            }
+        }
+    }
 }

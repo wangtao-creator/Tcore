@@ -152,7 +152,7 @@ pub fn sys_open_at(dirfd: isize, path: *const u8, flags: u32, mode: u32) -> isiz
     // 这里传入的地址为用户的虚地址，因此要使用用户的虚地址进行映射
     let path = translated_str(token, path);
     gdb_println!(SYSCALL_ENABLE, "sys_openat: path = {}", path);
-    let mut inner = task.acquire_inner_lock();
+    let mut inner =process.acquire_inner_lock();
 
     /////////////////////////////// WARNING ////////////////////////////////
     // 只是测试用的临时处理
@@ -1104,7 +1104,7 @@ pub fn sys_pselect(
         }
     };
 
-    drop(task);
+    drop(process);
     while !time_up {
         /* handle read fd set */
 

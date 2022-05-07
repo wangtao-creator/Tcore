@@ -285,7 +285,7 @@ pub fn sys_clock_get_time(clk_id: usize, tp: *mut u64) -> isize{
 /// This function only supports sending signal to the calling process
 pub fn sys_kill(pid: usize, signal: u32) -> isize {
     if let Some(process) = pid2process(pid) {
-        if let Some(flag) = SignalFlags::from_bits(signal) {
+        if let Some(flag) = Signals::from_bits(signal) {
             process.acquire_inner_lock().signals |= flag;
             0
         } else {
@@ -546,56 +546,56 @@ use super::FD_LIMIT;
         previous soft and hard limits for resource in the rlimit
         structure pointed to by old_limit.
 */
-pub fn sys_prlimit(pid:usize, resource:i32, new_limit: *const RLimit, old_limit: *mut RLimit)->isize {
-    /* check pid and fetch task*/
-    let task = {
-        if pid == 0 {
-            current_task().unwrap()
-        } else {
-            if let Some(tar_task) = fetch_task(pid) {
-                tar_task
-            } else {
-                return -1
-            }
-        }
-    };
+// pub fn sys_prlimit(pid:usize, resource:i32, new_limit: *const RLimit, old_limit: *mut RLimit)->isize {
+//     /* check pid and fetch task*/
+//     let task = {
+//         if pid == 0 {
+//             current_task().unwrap()
+//         } else {
+//             if let Some(tar_task) = fetch_task(pid) {
+//                 tar_task
+//             } else {
+//                 return -1
+//             }
+//         }
+//     };
 
-    let token = current_user_token();
-    let mut olimit_buf = {
-        if old_limit as usize != 0 {
-            UserBuffer::new(translated_byte_buffer(token, old_limit as usize as *const u8, size_of::<RLimit>()))
-        } else {
-            UserBuffer::empty()
-        }
-    };
+//     let token = current_user_token();
+//     let mut olimit_buf = {
+//         if old_limit as usize != 0 {
+//             UserBuffer::new(translated_byte_buffer(token, old_limit as usize as *const u8, size_of::<RLimit>()))
+//         } else {
+//             UserBuffer::empty()
+//         }
+//     };
 
-    let mut nlimit_buf = {
-        if new_limit as usize != 0 {
-            UserBuffer::new(translated_byte_buffer(token, new_limit as usize as *const u8, size_of::<RLimit>()))
-        } else {
-            UserBuffer::empty()
-        }
-    };
+//     let mut nlimit_buf = {
+//         if new_limit as usize != 0 {
+//             UserBuffer::new(translated_byte_buffer(token, new_limit as usize as *const u8, size_of::<RLimit>()))
+//         } else {
+//             UserBuffer::empty()
+//         }
+//     };
 
 
-    let mut inner = task.acquire_inner_lock();
-    if resource != RLIMIT_NOFILE {
-        panic!("[sys_prlimit64] resource {} has not been not supported yet!", resource);
-    }
+//     let mut inner = task.acquire_inner_lock();
+//     if resource != RLIMIT_NOFILE {
+//         panic!("[sys_prlimit64] resource {} has not been not supported yet!", resource);
+//     }
     
-    let limit = &mut inner.resource_list[resource as usize];
-    //drop(inner);
-    /* copy old limit from proc's limit */
-    if old_limit as usize != 0 {
-        //let mut olimit_buf = UserBuffer::new(translated_byte_buffer(token, old_limit as usize as *const u8, size_of::<RLimit>()));
-        olimit_buf.write( limit.as_bytes() );
-    }
+//     let limit = &mut inner.resource_list[resource as usize];
+//     //drop(inner);
+//     /* copy old limit from proc's limit */
+//     if old_limit as usize != 0 {
+//         //let mut olimit_buf = UserBuffer::new(translated_byte_buffer(token, old_limit as usize as *const u8, size_of::<RLimit>()));
+//         olimit_buf.write( limit.as_bytes() );
+//     }
 
-    /* set new limit to proc's limit */
-    if new_limit as usize != 0 {
-        //let mut nlimit_buf = UserBuffer::new(translated_byte_buffer(token, new_limit as usize as *const u8, size_of::<RLimit>()));
-        nlimit_buf.read( limit.as_bytes_mut() );
-    }  
+//     /* set new limit to proc's limit */
+//     if new_limit as usize != 0 {
+//         //let mut nlimit_buf = UserBuffer::new(translated_byte_buffer(token, new_limit as usize as *const u8, size_of::<RLimit>()));
+//         nlimit_buf.read( limit.as_bytes_mut() );
+//     }  
 
-    return 0
-}
+//     return 0
+// }
