@@ -7,7 +7,7 @@ mod info;
 mod switch;
 mod task;
 
-use crate::fs::{open_file, OpenFlags};
+use crate::fs::{open, OpenFlags, DiskInodeType, File};
 use alloc::sync::Arc;
 use lazy_static::*;
 use manager::fetch_task;
@@ -24,7 +24,7 @@ pub use processor::{
 pub use info::Signals;
 pub use task::{TaskControlBlock, TaskStatus};
 
-pub fn suspend_current_and_run_next() {
+pub fn suspend_current_and_run_next() ->isize{
     // There must be an application running.
     let task = take_current_task().unwrap();
 
@@ -40,6 +40,7 @@ pub fn suspend_current_and_run_next() {
     add_task(task);
     // jump to scheduling cycle
     schedule(task_cx_ptr );
+    return 0;
 }
 
 pub fn block_current_and_run_next() {
@@ -111,7 +112,109 @@ lazy_static! {
     };
 }
 
+
+// Write initproc & user_shell into file system to be executed
+// And then release them to fram_allocator
+pub fn add_initproc_into_fs() {
+    extern "C" { fn _num_app(); }
+    extern "C" { fn _app_names(); }
+    let mut num_app_ptr = _num_app as usize as *mut usize;
+    // let start = _app_names as usize as *const u8;
+    let mut app_start = unsafe {
+        core::slice::from_raw_parts_mut(num_app_ptr.add(1), 3)
+    };
+
+    open(
+        "/",
+        "mnt",
+        OpenFlags::CREATE,
+        DiskInodeType::Directory
+    );
+
+    // find if there already exits 
+    // println!("Find if there already exits ");
+    if let Some(inode) = open(
+        "/",
+        "initproc",
+        OpenFlags::RDONLY,
+        DiskInodeType::File
+    ){
+        println!("Already have init proc in FS");
+        //return;
+        inode.delete();
+    }
+
+    if let Some(inode) = open(
+        "/",
+        "user_shell",
+        OpenFlags::RDONLY,
+        DiskInodeType::File
+    ){
+        println!("Already have init proc in FS");
+        //return;
+        inode.delete();
+    }
+
+
+    // println!("Write apps(initproc & user_shell) to disk from mem ");
+
+    //Write apps(initproc & user_shell) to disk from mem
+    if let Some(inode) = open(
+        "/",
+        "initproc",
+        OpenFlags::CREATE,
+        DiskInodeType::File
+    ){
+        // println!("Create initproc ");
+        let mut data: Vec<&'static mut [u8]> = Vec::new();
+        data.push( unsafe{
+        core::slice::from_raw_parts_mut(
+            app_start[0] as *mut u8,
+            app_start[1] - app_start[0]
+        )}) ;
+        // println!("Start write initproc ");
+        inode.write(UserBuffer::new(data));
+        // println!("Init_proc OK");
+    }
+    else{
+        // panic!("initproc create fail!");
+    }
+
+    if let Some(inode) = open(
+        "/",
+        "user_shell",
+        OpenFlags::CREATE,
+        DiskInodeType::File
+    ){
+        // println!("Create user_shell ");
+        let mut data:Vec<&'static mut [u8]> = Vec::new();
+        data.push(unsafe{
+        core::slice::from_raw_parts_mut(
+            app_start[1] as *mut u8,
+            app_start[2] - app_start[1]
+        )});
+        //data.extend_from_slice(  )
+        // println!("Start write user_shell ");
+        inode.write(UserBuffer::new(data));
+        // println!("User_shell OK");
+    }
+    else{
+        panic!("user_shell create fail!");
+    }
+    println!("Write apps(initproc & user_shell) to disk from mem");
+
+
+    // release
+    let mut start_ppn = app_start[0] / PAGE_SIZE + 1;
+    println!("Recycle memory: {:x}-{:x}", start_ppn* PAGE_SIZE, (app_start[2] / PAGE_SIZE)* PAGE_SIZE);
+    while start_ppn < app_start[2] / PAGE_SIZE {
+        add_free(start_ppn);
+        start_ppn += 1;
+    }
+
+}
 pub fn add_initproc() {
+    add_initproc_into_fs();
     let _initproc = INITPROC.clone();
 }
 

@@ -70,6 +70,9 @@ impl ProcessControlBlockInner {
 
 
 impl ProcessControlBlock{
+    pub fn getpid(&self) -> usize {
+        self.pid.0
+    }
     pub fn acquire_inner_lock(&self) ->MutexGuard<ProcessControlBlockInner>{
         self.inner.lock()
     }
@@ -253,9 +256,6 @@ impl ProcessControlBlock{
         child
     }
     
-    pub fn getpid(&self) -> usize {
-        self.pid.0
-    }
 }
         
 

@@ -318,10 +318,10 @@ pub fn sys_kill(pid: isize, signal: isize) -> isize {
     -1
 }
 
-pub fn sys_set_tid_address(tidptr: usize) -> isize {
-    current_task().unwrap().acquire_inner_lock().address.clear_child_tid = tidptr;
-    sys_gettid()
-}
+// pub fn sys_set_tid_address(tidptr: usize) -> isize {
+//     current_task().unwrap().acquire_inner_lock().address.clear_child_tid = tidptr;
+//     sys_gettid()
+// }
 
 // For user, pid is tgid in kernel
 pub fn sys_getpid() -> isize {
@@ -353,9 +353,9 @@ pub fn sys_getegid() -> isize {
 }
 
 // For user, tid is pid in kernel
-pub fn sys_gettid() -> isize {
-    current_task().unwrap().pid.0 as isize
-}
+// pub fn sys_gettid() -> isize {
+//     current_task().unwrap().pid.0 as isize
+// }
 
 pub fn sys_sbrk(grow_size: isize, is_shrink: usize) -> isize {
     let current_va = current_task().unwrap().grow_proc(grow_size) as isize;
@@ -385,7 +385,7 @@ pub fn sys_fork() -> isize {
     let new_process = current_process.fork();
     let new_pid = new_process.getpid();
     // modify trap context of new_task, because it returns immediately after switching
-    let new_process_inner = new_process.inner_exclusive_access();
+    let new_process_inner = new_process.acquire_inner_lock();
     let task = new_process_inner.tasks[0].as_ref().unwrap();
     let trap_cx = task.inner_exclusive_access().get_trap_cx();
     // we do not have to move to next instruction since we have done it before
@@ -477,7 +477,7 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
     let process = current_process();
     // find a child process
 
-    let mut inner = process.inner_exclusive_access();
+    let mut inner = process.acquire_inner_lock();
     if !inner
         .children
         .iter()

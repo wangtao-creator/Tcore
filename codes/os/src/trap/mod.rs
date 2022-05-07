@@ -132,13 +132,15 @@ pub fn trap_handler() -> ! {
             let task = current_task().unwrap();
             // println!{"pinLoadFault"}
             //println!("prev syscall = {}", G_SATP.lock().get_syscall());
+            /*
             println!(
                 "[kernel] {:?} in application-{}, bad addr = {:#x}, bad instruction = {:#x}, core dumped.",
                 scause.cause(),
                 task.pid.0,
                 stval,
                 current_trap_cx().sepc,
-            );
+            );\
+            */
             drop(task);
             // page fault exit code
             let current_task = current_task().unwrap();
