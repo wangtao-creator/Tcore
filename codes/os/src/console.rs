@@ -1,8 +1,17 @@
-use core::fmt::{self, Write};
 use crate::sbi::console_putchar;
-
+use core::fmt::{self, Write};
+use spin::Mutex;
 struct Stdout;
 
+pub struct ConsoleInner;
+
+static CONSOLE: Mutex<ConsoleInner> = Mutex::new(ConsoleInner {});
+
+impl ConsoleInner {
+    fn puts(&self, args: fmt::Arguments) {
+        Stdout.write_fmt(args).unwrap();
+    }
+}
 
 impl Write for Stdout {
     fn write_str(&mut self, s: &str) -> fmt::Result {
@@ -14,10 +23,9 @@ impl Write for Stdout {
 }
 
 pub fn print(args: fmt::Arguments) {
-    Stdout.write_fmt(args).unwrap();
+    //Stdout.write_fmt(args).unwrap();
+    CONSOLE.lock().puts(args);
 }
-
-
 
 //#[cfg(feature = "board_qemu")]
 #[macro_export]
@@ -37,7 +45,7 @@ macro_rules! println {
     }
 }
 
-/* 
+/*
 #[cfg(feature = "board_k210")]
 #[macro_export]
 macro_rules! print {
@@ -55,5 +63,3 @@ macro_rules! println {
         //$crate::fs::_print(format_args!(core::concat!($fmt, "\n") $(, $($arg)+)?));
     }
 }*/
-
-
