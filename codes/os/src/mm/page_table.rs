@@ -14,7 +14,7 @@ use alloc::vec::Vec;
 use alloc::vec;
 use alloc::string::String;
 use bitflags::*;
-
+use crate::task::*;
 bitflags! {
     pub struct PTEFlags: u8 {
         const V = 1 << 0;
@@ -319,7 +319,7 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
         if page_table.translate(vpn).is_none() {
             // println!{"preparing into checking lazy..."}
             //println!("check_lazy 3");
-            current_task().unwrap().check_lazy(start_va, true);
+            current_process().check_lazy(start_va, true);
             unsafe {
                 llvm_asm!("sfence.vma" :::: "volatile");
                 llvm_asm!("fence.i" :::: "volatile");
@@ -372,7 +372,7 @@ pub fn translated_refmut<T>(token: usize, ptr: *mut T) -> &'static mut T {
     if page_table.translate_va(vaddr).is_none() {
         // println!{"preparing into checking lazy..."}
         //println!("check_lazy 2");
-        current_task().unwrap().check_lazy(vaddr,true);
+        current_process().check_lazy(vaddr,true);
         unsafe {
             llvm_asm!("sfence.vma" :::: "volatile");
             llvm_asm!("fence.i" :::: "volatile");

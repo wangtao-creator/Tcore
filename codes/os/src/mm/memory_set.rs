@@ -261,7 +261,7 @@ impl MemorySet {
     }
     /// Include sections in elf and trampoline and TrapContext and user stack,
     /// also returns user_sp and entry point.
-    pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize, usize, Vec<AuxHeader>) {
+    pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize,usize, Vec<AuxHeader>) {
         let mut auxv:Vec<AuxHeader> = Vec::new();
         let mut memory_set = Self::new_bare();
         // map trampoline
@@ -395,52 +395,6 @@ impl MemorySet {
         memory_set.map_kernel_shared();
 
         (memory_set, user_stack_top, user_heap_bottom, elf.header.pt2.entry_point() as usize, auxv)
-    }
- 
-    pub fn from_existed_user(user_space: &MemorySet) -> MemorySet {
-        let mut memory_set = Self::new_bare();
-        // map trampoline
-        // memory_set.map_trampoline();
-        memory_set.map_signal_trampoline();
-        // copy data sections/trap_context/user_stack
-        for area in user_space.areas.iter() {
-            let new_area = MapArea::from_another(area);
-            memory_set.push(new_area, None);
-            // copy data from another space
-            for vpn in area.vpn_range {
-                let src_ppn = user_space.translate(vpn).unwrap().ppn();
-                let dst_ppn = memory_set.translate(vpn).unwrap().ppn();
-                dst_ppn.get_bytes_array().copy_from_slice(src_ppn.get_bytes_array());
-            }
-        }
-        for vpn in user_space.chunks.vpn_table.iter() {
-            let vpn_copy: VirtPageNum = vpn.0.into();
-            memory_set.push_chunk(vpn_copy);
-            let src_ppn = user_space.translate(vpn_copy).unwrap().ppn();
-            let dst_ppn = memory_set.translate(vpn_copy).unwrap().ppn();
-            dst_ppn.get_bytes_array().copy_from_slice(src_ppn.get_bytes_array());
-        }
-        for vpn in user_space.stack_chunks.vpn_table.iter() {
-            let vpn_copy: VirtPageNum = vpn.0.into();
-            memory_set.push_chunk(vpn_copy);
-            let src_ppn = user_space.translate(vpn_copy).unwrap().ppn();
-            let dst_ppn = memory_set.translate(vpn_copy).unwrap().ppn();
-            dst_ppn.get_bytes_array().copy_from_slice(src_ppn.get_bytes_array());
-        }
-        for mmap_chunk in user_space.mmap_chunks.iter() {
-            let mut new_mmap_area = ChunkArea::new(mmap_chunk.map_type, mmap_chunk.map_perm);
-            new_mmap_area.set_mmap_range(mmap_chunk.mmap_start, mmap_chunk.mmap_end);
-            for vpn in mmap_chunk.vpn_table.iter() {
-                let vpn_copy: VirtPageNum = vpn.0.into();
-                new_mmap_area.push_vpn(vpn_copy, &mut memory_set.page_table);
-                let src_ppn = user_space.translate(vpn_copy).unwrap().ppn();
-                let dst_ppn = memory_set.translate(vpn_copy).unwrap().ppn();
-                dst_ppn.get_bytes_array().copy_from_slice(src_ppn.get_bytes_array());
-            }
-            memory_set.mmap_chunks.push(new_mmap_area);
-        }
-        memory_set.map_kernel_shared();
-        memory_set
     }
 
     pub fn from_copy_on_write(user_space: &mut MemorySet, split_addr: usize) -> MemorySet {

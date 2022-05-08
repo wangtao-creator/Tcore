@@ -129,9 +129,9 @@ pub fn trap_handler() -> ! {
             */
             drop(task);
             // page fault exit code
-            let current_task = current_task().unwrap();
-            if current_task.is_signal_execute() || !current_task.check_signal_handler(Signals::SIGSEGV){
-                drop(current_task);
+            let process = current_process();
+            if process.is_signal_execute() || !process.check_signal_handler(Signals::SIGSEGV){
+                drop(process);
                 exit_current_and_run_next(-2);
             }
         }
@@ -152,19 +152,19 @@ pub fn trap_handler() -> ! {
                 panic!("VirtAddr out of range!");
             }
             //println!("check_lazy 1");
-            let lazy = current_task().unwrap().check_lazy(va, is_load);
+            let lazy = current_process().check_lazy(va, is_load);
             if lazy != 0 {
                 // page fault exit code
-                let current_task = current_task().unwrap();
-                if current_task.is_signal_execute() || !current_task.check_signal_handler(Signals::SIGSEGV){
-                    current_task.acquire_inner_lock().memory_set.print_pagetable();
+                let process = current_process();
+                if process.is_signal_execute() || !process.check_signal_handler(Signals::SIGSEGV){
+                    process.acquire_inner_lock().memory_set.print_pagetable();
                     println!(
                         "[kernel] {:?} in application, bad addr = {:#x}, bad instruction = {:#x}, core dumped.",
                         scause.cause(),
                         stval,
                         current_trap_cx().sepc,
                     );
-                    drop(current_task);
+                    drop(process);
                     exit_current_and_run_next(-2);
                 }
             }

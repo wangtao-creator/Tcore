@@ -26,7 +26,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use crate::mm::{UserBuffer, add_free, translated_refmut};
 use crate::config::PAGE_SIZE;
-
+use crate::utils::log2;
 pub fn suspend_current_and_run_next() ->isize{
     // There must be an application running.
     let task = take_current_task().unwrap();
@@ -109,7 +109,7 @@ pub fn exit_current_and_run_next(exit_code: i32) {
 
 lazy_static! {
     pub static ref INITPROC: Arc<ProcessControlBlock> = {
-        let inode = open_file("initproc", OpenFlags::RDONLY).unwrap();
+        let inode = open("/","initproc", OpenFlags::RDONLY, DiskInodeType::File).unwrap();
         let v = inode.read_all();
         ProcessControlBlock::new(v.as_slice())
     };
@@ -234,16 +234,16 @@ pub fn current_add_signal(signal: Signals) {
 }
 // if there is unhandled signal, it will automatic change trap_cx which makes it unseen in codes outside the func
 pub fn perform_signal_handler(){
-    let current_task = current_task().unwrap();
+    let process = current_process();
     // if current_task.pid.0 == 4{print!("[pid 4 1]");}
     // mask all the signals when processing signal handler
-    if !current_task.is_signal_execute() && !current_task.acquire_inner_lock().siginfo.signal_pending.is_empty(){
+    if !process.is_signal_execute() && !process.acquire_inner_lock().siginfo.signal_pending.is_empty(){
         // if current_task.pid.0 == 4{print!("[pid 4 2]");}
-        if let Some((signal, handler)) = current_task.scan_signal_handler(){
+        if let Some((signal, handler)) = process.scan_signal_handler(){
             // if current_task.pid.0 == 4{print!("[pid 4 3]");}
             if (signal == Signals::SIGTERM || signal == Signals::SIGKILL) && handler == SIG_DFL {
                 // if current_task.pid.0 == 4{print!("[pid 4 4]");}
-                drop(current_task);
+                drop(process);
                 exit_current_and_run_next(log2(signal.bits()) as i32);
             }
         }

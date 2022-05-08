@@ -152,7 +152,7 @@ pub fn sys_open_at(dirfd: isize, path: *const u8, flags: u32, mode: u32) -> isiz
     // 这里传入的地址为用户的虚地址，因此要使用用户的虚地址进行映射
     let path = translated_str(token, path);
     gdb_println!(SYSCALL_ENABLE, "sys_openat: path = {}", path);
-    let mut inner =process.acquire_inner_lock();
+    let mut inner = process.acquire_inner_lock();
 
     /////////////////////////////// WARNING ////////////////////////////////
     // 只是测试用的临时处理
@@ -1108,8 +1108,8 @@ pub fn sys_pselect(
     while !time_up {
         /* handle read fd set */
 
-        let task = current_task().unwrap();
-        let inner = task.acquire_inner_lock();
+        let preocess = current_process();
+        let inner = preocess.acquire_inner_lock();
         let fd_table = &inner.fd_table;
         if readfds as usize != 0 && !r_all_ready {
             //let mut ubuf_rfds = UserBuffer::new(
@@ -1239,7 +1239,7 @@ pub fn sys_pselect(
                 // not reach timer (now < timer)
                 drop(fd_table);
                 drop(inner);
-                drop(task);
+                drop(preocess);
                 suspend_current_and_run_next();
             } else {
                 time_up = true;
@@ -1252,8 +1252,7 @@ pub fn sys_pselect(
         }
     }
     let task = current_task().unwrap();
-    gdb_println!(SYSCALL_ENABLE, "sys_pselect( nfds: {}, readfds: {:?}, writefds: {:?}, exceptfds: {:?}, timeout: {:?}) = {}, pid-{}",
-                 nfds, rfd_vec, wfd_vec, rfd_vec, timer_interval, r_ready_count + w_ready_count + e_ready_count, task.pid.0);
+    
     return r_ready_count + w_ready_count + e_ready_count;
 }
 

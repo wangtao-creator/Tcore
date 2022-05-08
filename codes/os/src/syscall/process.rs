@@ -285,7 +285,7 @@ pub fn sys_clock_get_time(clk_id: usize, tp: *mut u64) -> isize{
 /// This function only supports sending signal to the calling process
 pub fn sys_kill(pid: usize, signal: u32) -> isize {
     if let Some(process) = pid2process(pid) {
-        if let Some(flag) = Signals::from_bits(signal) {
+        if let Some(flag) = Signals::from_bits(signal as usize) {
             process.acquire_inner_lock().signals |= flag;
             0
         } else {
@@ -308,10 +308,7 @@ pub fn sys_getpid() -> isize {
 
 // For user, pid is tgid in kernel
 pub fn sys_getppid() -> isize {
-    let mut search_task: Arc<ProcessControlBlock> = current_task().unwrap();
-    search_task = search_task.get_parent().unwrap();
-    gdb_println!(SYSCALL_ENABLE,"sys_getppid() = {}",search_task.tgid);
-    search_task.tgid as isize
+    current_task().unwrap().process.upgrade().unwrap().getpid() as isize
 }
 
 pub fn sys_getuid() -> isize {
@@ -363,9 +360,9 @@ pub fn sys_fork() -> isize {
     let new_process = current_process.fork();
     let new_pid = new_process.getpid();
     // modify trap context of new_task, because it returns immediately after switching
-    let new_process_inner = new_process.inner_exclusive_access();
+    let new_process_inner = new_process.acquire_inner_lock();
     let task = new_process_inner.tasks[0].as_ref().unwrap();
-    let trap_cx = task.inner_exclusive_access().get_trap_cx();
+    let trap_cx = task.acquire_inner_lock().get_trap_cx();
     // we do not have to move to next instruction since we have done it before
     // for child process, fork returns 0
     trap_cx.x[10] = 0;
@@ -386,7 +383,9 @@ pub fn sys_exec(path: *const u8, mut args: *const usize) -> isize {
             args = args.add(1);
         }
     }
-    if let Some(app_inode) = open_file(path.as_str(), OpenFlags::RDONLY) {
+    let process=current_process();
+    let inner = process.acquire_inner_lock();
+    if let Some(app_inode) = open(inner.current_path.as_str(),path.as_str(),OpenFlags::RDONLY, DiskInodeType::File) {
         let all_data = app_inode.read_all();
         let process = current_process();
         let argc = args_vec.len();
@@ -489,20 +488,20 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
 // WARNING: if mmap len is 0, we will alloc one page for it, which actually should be forbidden.
 
 pub fn sys_mmap(start: usize, len: usize, prot: usize, flags: usize, fd: isize, off: usize) -> isize {
-    let task = current_task().unwrap();
+    let process = current_process();
     let mut adjust_len = len;
     if adjust_len == 0{
         adjust_len = PAGE_SIZE;
     }
-    let result_addr = task.mmap(start, adjust_len, prot, flags, fd, off);
+    let result_addr = process.mmap(start, adjust_len, prot, flags, fd, off);
     gdb_println!(SYSCALL_ENABLE,"sys_mmap(0x{:X},{},{},0x{:X},{},{}) = 0x{:X}",start, len, prot, flags, fd, off, result_addr);
     return result_addr as isize;
 }
 
 //use crate::mm::HEAP_ALLOCATOR;
 pub fn sys_munmap(start: usize, len: usize) -> isize {
-    let task = current_task().unwrap();
-    let ret = task.munmap(start, len);
+    let process = current_process();
+    let ret = process.munmap(start, len);
     ret
 }
 
@@ -511,9 +510,9 @@ pub fn sys_mprotect(addr: usize, len: usize, prot: isize) -> isize{
         println!("sys_mprotect: not align");
         return -1
     }
-    let task = current_task().unwrap();
+    let process = current_process();
     // let token = task.acquire_inner_lock().get_user_token();
-    let memory_set = &mut task.acquire_inner_lock().memory_set;
+    let memory_set = &mut process.acquire_inner_lock().memory_set;
     let start_vpn = addr / PAGE_SIZE;
     for i in 0..(len/PAGE_SIZE){
         // here (prot << 1) is identical to BitFlags of X/W/R in pte flags

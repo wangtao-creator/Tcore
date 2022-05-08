@@ -89,6 +89,19 @@ impl Drop for KernelStack {
 }
 
 impl KernelStack {
+    pub fn new(pid_handle: &PidHandle) -> Self {
+        let pid = pid_handle.0;
+        let (kernel_stack_bottom, kernel_stack_top) = kernel_stack_position(pid);
+        KERNEL_SPACE
+            .lock()
+            .insert_framed_area(
+                kernel_stack_bottom.into(),
+                kernel_stack_top.into(),
+                MapPermission::R | MapPermission::W,
+            );
+        KernelStack(pid)
+            
+    }
     #[allow(unused)]
     pub fn push_on_top<T>(&self, value: T) -> *mut T
     where

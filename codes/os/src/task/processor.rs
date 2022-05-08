@@ -13,16 +13,19 @@ use crate::gdb_print;
 use crate::monitor::*;
 
 pub fn get_core_id() -> usize {
-    let tp :usize = get_core_id();
+    let tp :usize;
     unsafe {
         llvm_asm!("mv $0,tp" : "=r"(tp));
     }
-    //tp
-    0
+    tp
+    //0
+}
+unsafe impl Sync for Processor {}
+pub struct Processor {
+    inner: RefCell<ProcessorInner>,
 }
 
-
-pub struct Processor {
+pub struct ProcessorInner  {
     current: Option<Arc<TaskControlBlock>>,
     idle_task_cx: TaskContext,
     user_clock: usize,  /* Timer usec when last enter into the user program */
@@ -32,38 +35,40 @@ pub struct Processor {
 impl Processor {
     pub fn new() -> Self {
         Self {
+            inner: RefCell::new(ProcessorInner {
                 current: None,
                 idle_task_cx: TaskContext::zero_init(),
                 user_clock: 0,  
                 kernel_clock: 0,
+            }),
         }
     }
 
     // when trap return to user program, use this func to update user clock
     pub fn update_user_clock(& self){
-        self.user_clock = get_time_us();
+        self.inner.borrow_mut().user_clock = get_time_us();
     }
     
     // when trap into kernel, use this func to update kernel clock
     pub fn update_kernel_clock(& self){
-        self.kernel_clock = get_time_us();
+        self.inner.borrow_mut().kernel_clock = get_time_us();
     }
 
     pub fn get_user_clock(& self) -> usize{
-        return self.user_clock;
+        return self.inner.borrow().user_clock;
     }
 
     pub fn get_kernel_clock(& self) -> usize{
-        return self.kernel_clock;
+        return self.inner.borrow().kernel_clock;
     }
 
-    fn get_idle_task_cx_ptr(&mut self) -> *mut TaskContext {
-        &mut self.idle_task_cx as *mut _
+    fn get_idle_task_cx_ptr(& self) -> *mut TaskContext {
+        &mut self.inner.borrow_mut().idle_task_cx as *mut _
     }
     pub fn run(&self) {
         loop{
             let core_id=get_core_id();
-            let mut processor = PROCESSOR_LIST[core_id];
+            let mut processor = PROCESSOR_LIST[core_id].inner.borrow_mut();
             if let Some(task) = fetch_task() {
                 let idle_task_cx_ptr = self.get_idle_task_cx_ptr();
                 // access coming task TCB exclusively
@@ -84,10 +89,10 @@ impl Processor {
         }
     }
      pub fn take_current(&self) -> Option<Arc<TaskControlBlock>> {
-        self.current.take()
+        self.inner.borrow_mut().current.take()
     }
     pub fn current(&self) -> Option<Arc<TaskControlBlock>> {
-        self.current.as_ref().map(|task| Arc::clone(task))
+        self.inner.borrow_mut().current.as_ref().map(|task| Arc::clone(task))
     }
 }
 
