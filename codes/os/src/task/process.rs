@@ -29,7 +29,6 @@ pub struct ProcessControlBlock {
 pub type FdTable = Vec<Option<FileDescripter>>;
 
 pub struct ProcessControlBlockInner {
-    pub trap_cx_ppn: PhysPageNum,
     pub is_zombie: bool,
     pub memory_set: MemorySet,
     pub base_size: usize,
@@ -42,7 +41,7 @@ pub struct ProcessControlBlockInner {
     pub fd_table: FdTable,
     pub signals: Signals,
     pub siginfo: SigInfo,
-    pub trapcx_backup: TrapContext,
+    //pub trapcx_backup: TrapContext,
     pub tasks: Vec<Option<Arc<TaskControlBlock>>>,
     pub task_res_allocator: RecycleAllocator,
     pub current_path: String,
@@ -83,10 +82,6 @@ impl ProcessControlBlockInner {
         self.current_path.clone()
     }
 
-    pub fn get_trap_cx(&self) -> &'static mut TrapContext {
-        // println!{"trap_cx_ppn: {:X}", self.trap_cx_ppn.0}
-        self.trap_cx_ppn.get_mut()
-    }
     pub fn enquire_vpn(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.memory_set.translate(vpn)
     }
@@ -113,18 +108,12 @@ impl ProcessControlBlock {
     pub fn new(elf_data: &[u8]) -> Arc<Self> {
         //memory_set with elf program headers/trampoline/trap context/user stack
         let (memory_set, user_sp, user_heap, entry_point, auxv) = MemorySet::from_elf(elf_data);
-        //alloc  a pid
-        let trap_cx_ppn = memory_set
-            .translate(VirtAddr::from(TRAP_CONTEXT).into())
-            .unwrap()
-            .ppn();
         let pid_handle = pid_alloc();
-        let kernel_stack = KernelStack::new(&pid_handle);
-        let kernel_stack_top = kernel_stack.get_top();
+        //let kernel_stack = KernelStack::new(&pid_handle);
+        //let kernel_stack_top = kernel_stack.get_top();
         let process = Arc::new(Self {
             pid: pid_handle,
             inner: Mutex::new(ProcessControlBlockInner {
-                trap_cx_ppn,
                 is_zombie: false,
                 memory_set,
                 parent: None,
@@ -147,13 +136,13 @@ impl ProcessControlBlock {
                         FileClass::Abstr(Arc::new(Stdout)),
                     )),
                 ],
-                trapcx_backup: TrapContext::app_init_context(
-                    entry_point,
-                    user_sp,
-                    KERNEL_SPACE.lock().token(),
-                    kernel_stack_top,
-                    trap_handler as usize,
-                ),
+                // trapcx_backup: TrapContext::app_init_context(
+                //     entry_point,
+                //     user_sp,
+                //     KERNEL_SPACE.lock().token(),
+                //     kernel_stack_top,
+                //     trap_handler as usize,
+                // ),
                 mmap_area: MmapArea::new(VirtAddr::from(MMAP_BASE), VirtAddr::from(MMAP_BASE)),
                 base_size: user_sp,
                 heap_start: user_heap,
@@ -167,11 +156,7 @@ impl ProcessControlBlock {
             }),
         });
         //create a main thread ,we should alloc ustack and trap_cx header
-        let task = Arc::new(TaskControlBlock::new(
-            Arc::clone(&process),
-            user_heap,
-            true,
-        ));
+        let task = Arc::new(TaskControlBlock::new(Arc::clone(&process), user_heap, true));
         //prepare trap_cx of main thread
         let task_inner = task.acquire_inner_lock();
         let trap_cx = task_inner.get_trap_cx();
@@ -199,20 +184,14 @@ impl ProcessControlBlock {
         assert_eq!(self.acquire_inner_lock().thread_count(), 0);
         //memory_set with elf program headers/trampoline/trap context/user stack
         let (memory_set, user_sp, user_heap, entry_point, auxv) = MemorySet::from_elf(elf_data);
-        let trap_cx_ppn = memory_set
-            .translate(VirtAddr::from(TRAP_CONTEXT).into())
-            .unwrap()
-            .ppn();
-            
         let new_token = memory_set.token();
         //substitute memory_set
         self.acquire_inner_lock().memory_set = memory_set;
         // then we alloc user resource for main thread again
         // since memory_set has been changed
         let task = self.acquire_inner_lock().get_task(0);
-        
+
         let mut task_inner = task.acquire_inner_lock();
-        task_inner.trap_cx_ppn = trap_cx_ppn;
         task_inner.res.as_mut().unwrap().ustack_base = user_heap;
         task_inner.res.as_mut().unwrap().alloc_user_res();
         task_inner.trap_cx_ppn = task_inner.res.as_mut().unwrap().trap_cx_ppn();
@@ -260,7 +239,7 @@ impl ProcessControlBlock {
         assert_eq!(parent.thread_count(), 1);
         // clone parent's memory_set completely including trampoline/ustacks/trap_cxs
         let user_heap_base = parent.heap_start;
-        let memory_set = MemorySet::from_copy_on_write(& mut parent.memory_set,user_heap_base);
+        let memory_set = MemorySet::from_copy_on_write(&mut parent.memory_set, user_heap_base);
         // alloc a pid
         let pid = pid_alloc();
         // copy fd table
@@ -272,21 +251,16 @@ impl ProcessControlBlock {
                 new_fd_table.push(None);
             }
         }
-        let trap_cx_ppn = memory_set
-            .translate(VirtAddr::from(TRAP_CONTEXT).into())
-            .unwrap()
-            .ppn();
         // create child process pcb
         let child = Arc::new(Self {
             pid,
             inner: Mutex::new(ProcessControlBlockInner {
-                trap_cx_ppn,
                 is_zombie: false,
                 memory_set,
                 parent: Some(Arc::downgrade(self)),
                 children: Vec::new(),
                 exit_code: 0,
-                trapcx_backup: parent.get_trap_cx().clone(),
+                //trapcx_backup: parent.get_trap_cx().clone(),
                 mmap_area: MmapArea::new(VirtAddr::from(MMAP_BASE), VirtAddr::from(MMAP_BASE)),
                 base_size: parent.base_size,
                 heap_start: parent.heap_start,
@@ -341,16 +315,12 @@ impl ProcessControlBlock {
                 return false;
             }
             {
-                // avoid borrow mut trap_cx, because we need to modify trapcx_backup
-                let trap_cx = inner.get_trap_cx().clone();
-                inner.trapcx_backup = trap_cx; // backup
-            }
-            {
-                let trap_cx = inner.get_trap_cx();
-                trap_cx.set_sp(USER_SIGNAL_STACK); // sp-> signal_stack
-                trap_cx.x[10] = log2(signal.bits()); // a0=signum
-                trap_cx.x[1] = SIGNAL_TRAMPOLINE; // ra-> signal_trampoline
-                trap_cx.sepc = sigaction.sa_handler; // sepc-> sa_handler
+                // let task_inner = task.acquire_inner_lock();
+                // let trap_cx = task_inner.get_trap_cx();
+                // trap_cx.set_sp(USER_SIGNAL_STACK); // sp-> signal_stack
+                // trap_cx.x[10] = log2(signal.bits()); // a0=signum
+                // trap_cx.x[1] = SIGNAL_TRAMPOLINE; // ra-> signal_trampoline
+                // trap_cx.sepc = sigaction.sa_handler; // sepc-> sa_handler
             }
             inner.siginfo.is_signal_execute = true;
             true
@@ -415,16 +385,12 @@ impl ProcessControlBlock {
                     continue;
                 }
                 {
-                    // avoid borrow mut trap_cx, because we need to modify trapcx_backup
-                    let trap_cx = inner.get_trap_cx().clone();
-                    inner.trapcx_backup = trap_cx; // backup
-                }
-                {
-                    let trap_cx = inner.get_trap_cx();
-                    trap_cx.set_sp(USER_SIGNAL_STACK); // sp-> signal_stack
-                    trap_cx.x[10] = log2(signum.bits()); // a0=signum
-                    trap_cx.x[1] = SIGNAL_TRAMPOLINE; // ra-> signal_trampoline
-                    trap_cx.sepc = sigaction.sa_handler; // sepc-> sa_handler
+                    // let task_inner = task.acquire_inner_lock();
+                    // let trap_cx = task_inner.get_trap_cx();
+                    // trap_cx.set_sp(USER_SIGNAL_STACK); // sp-> signal_stack
+                    // trap_cx.x[10] = log2(signum.bits()); // a0=signum
+                    // trap_cx.x[1] = SIGNAL_TRAMPOLINE; // ra-> signal_trampoline
+                    // trap_cx.sepc = sigaction.sa_handler; // sepc-> sa_handler
                                                          //gdb_println!(SIGNAL_ENABLE, " --- {:?} (si_signo={:?}, si_code=UNKNOWN, si_addr=0x{:X})", signum, signum, sigaction.sa_handler);
                 }
                 inner.siginfo.is_signal_execute = true;

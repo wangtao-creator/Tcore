@@ -40,11 +40,12 @@ impl RecycleAllocator {
 }
 
 lazy_static! {
-    static ref PID_ALLOCATOR: Mutex<RecycleAllocator> =
-        unsafe { Mutex::new(RecycleAllocator::new()) };
-    static ref KSTACK_ALLOCATOR: Mutex<RecycleAllocator> =
-        unsafe { Mutex::new(RecycleAllocator::new()) };
+    static ref PID_ALLOCATOR: Arc<Mutex<RecycleAllocator>> =
+        Arc::new(Mutex::new(RecycleAllocator::new()));
+    static ref KSTACK_ALLOCATOR: Arc<Mutex<RecycleAllocator>> =
+        Arc::new(Mutex::new(RecycleAllocator::new()));
 }
+
 
 pub struct PidHandle(pub usize);
 
@@ -89,19 +90,6 @@ impl Drop for KernelStack {
 }
 
 impl KernelStack {
-    pub fn new(pid_handle: &PidHandle) -> Self {
-        let pid = pid_handle.0;
-        let (kernel_stack_bottom, kernel_stack_top) = kernel_stack_position(pid);
-        KERNEL_SPACE
-            .lock()
-            .insert_framed_area(
-                kernel_stack_bottom.into(),
-                kernel_stack_top.into(),
-                MapPermission::R | MapPermission::W,
-            );
-        KernelStack(pid)
-            
-    }
     #[allow(unused)]
     pub fn push_on_top<T>(&self, value: T) -> *mut T
     where
@@ -169,7 +157,7 @@ impl TaskUserRes {
         process_inner.memory_set.insert_framed_area(
             trap_cx_bottom.into(),
             trap_cx_top.into(),
-            MapPermission::R | MapPermission::W,
+            MapPermission::R | MapPermission::W ,
         );
     }
 

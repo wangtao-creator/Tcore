@@ -263,21 +263,17 @@ impl MemorySet {
     /// also returns user_sp and entry point.
     pub fn from_elf(elf_data: &[u8]) -> (Self, usize, usize,usize, Vec<AuxHeader>) {
         let mut auxv:Vec<AuxHeader> = Vec::new();
-        let mut memory_set = Self::new_bare();
+        let mut memory_set = Self::new_bare();//√
         // map trampoline
         // memory_set.map_trampoline();
-        memory_set.map_signal_trampoline();
+        memory_set.map_signal_trampoline();//√
         // map program headers of elf, with U flag
-        let elf = xmas_elf::ElfFile::new(elf_data).unwrap();
-        let elf_header = elf.header;
-        // let comment_sec = elf.find_section_by_name(".comment").unwrap();
-        // println!(".comment offset: {}", comment_sec.offset());
-        
-
-        let magic = elf_header.pt1.magic;
-        assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
-        let ph_count = elf_header.pt2.ph_count();
-        let mut max_end_vpn = VirtPageNum(0);
+        let elf = xmas_elf::ElfFile::new(elf_data).unwrap();//√
+        let elf_header = elf.header;//√
+        let magic = elf_header.pt1.magic;//√
+        assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");//√
+        let ph_count = elf_header.pt2.ph_count();//√
+        let mut max_end_vpn = VirtPageNum(0);//√
         let mut head_va = 0; // top va of ELF which points to ELF header
         // push ELF related auxv
         auxv.push(AuxHeader{aux_type: AT_PHENT, value: elf.header.pt2.ph_entry_size() as usize});// ELF64 header 64bytes
@@ -300,9 +296,9 @@ impl MemorySet {
         let mut comment_flag = true;
 
         for ph in elf.program_iter(){
-            if ph.get_type().unwrap() == xmas_elf::program::Type::Load {
-                let start_va: VirtAddr = (ph.virtual_addr() as usize).into();
-                let end_va: VirtAddr = ((ph.virtual_addr() + ph.mem_size()) as usize).into();
+            if ph.get_type().unwrap() == xmas_elf::program::Type::Load {//√
+                let start_va: VirtAddr = (ph.virtual_addr() as usize).into();//√
+                let end_va: VirtAddr = ((ph.virtual_addr() + ph.mem_size()) as usize).into();//√
                 let offset = start_va.0 - start_va.floor().0 * PAGE_SIZE;
 
                 if start_va.0 == 0{
@@ -311,19 +307,19 @@ impl MemorySet {
 
                 //println!("[elf] ph={:?}", ph.to_string());
                 //println!("[elf] start_va = 0x{:X}; end_va = 0x{:X}, offset = 0x{:X}", ph.virtual_addr() as usize, ph.virtual_addr() + ph.mem_size(), offset);
-                let mut map_perm = MapPermission::U;
-                let ph_flags = ph.flags();
-                if ph_flags.is_read() { map_perm |= MapPermission::R; }
-                if ph_flags.is_write() { map_perm |= MapPermission::W; }
-                if ph_flags.is_execute() { map_perm |= MapPermission::X; }
-                let map_area = MapArea::new(
-                    start_va,
-                    end_va,
-                    MapType::Framed,
-                    map_perm,
+                let mut map_perm = MapPermission::U;//√
+                let ph_flags = ph.flags();//√
+                if ph_flags.is_read() { map_perm |= MapPermission::R; }//√
+                if ph_flags.is_write() { map_perm |= MapPermission::W; }//√
+                if ph_flags.is_execute() { map_perm |= MapPermission::X; }//√
+                let map_area = MapArea::new(//√
+                    start_va,//√
+                    end_va,//√
+                    MapType::Framed,//√
+                    map_perm,//√
                 );
                 //println!("[elf] map elfinput:\n    from 0x{:X} to 0x{:X}", ph.offset(), ph.offset() + ph.file_size());
-                max_end_vpn = map_area.vpn_range.get_end();
+                max_end_vpn = map_area.vpn_range.get_end();//√
                 
                 if offset == 0 {
                     head_va = start_va.into();
@@ -348,7 +344,7 @@ impl MemorySet {
 
         //map user heap
         let max_end_va: VirtAddr = max_end_vpn.into();
-        let mut user_heap_bottom: usize = max_end_va.into();
+        let mut user_heap_bottom: usize = max_end_va.into();//
         //guard page
         user_heap_bottom += PAGE_SIZE;
         // let user_heap_top: usize = user_heap_bottom + USER_HEAP_SIZE;
@@ -361,36 +357,36 @@ impl MemorySet {
         // ), None);
 
         // maparea2: TrapContext
-        memory_set.push(MapArea::new(
-            TRAP_CONTEXT.into(),
-            (TRAP_CONTEXT+PAGE_SIZE).into(),
-            MapType::Framed,
-            MapPermission::R | MapPermission::W,
-        ), None);
+        // memory_set.push(MapArea::new(
+        //     TRAP_CONTEXT.into(),
+        //     (TRAP_CONTEXT+PAGE_SIZE).into(),
+        //     MapType::Framed,
+        //     MapPermission::R | MapPermission::W,
+        // ), None);
 
         // map user stack with U flags
         // maparea3: user_stack
         let max_top_va: VirtAddr = TRAP_CONTEXT.into();
-        let mut user_stack_top: usize = TRAP_CONTEXT;
+        let mut user_stack_top: usize = TRAP_CONTEXT;//用户栈虚拟地址
         user_stack_top -= PAGE_SIZE;
         let user_stack_bottom: usize = user_stack_top - USER_STACK_SIZE_MIN; 
-        memory_set.push(MapArea::new(
-            user_stack_bottom.into(),
-            user_stack_top.into(),
-            MapType::Framed,
-            MapPermission::R | MapPermission::W | MapPermission::U,
-        ), None);
+        // memory_set.push(MapArea::new(
+        //     user_stack_bottom.into(),
+        //     user_stack_top.into(),
+        //     MapType::Framed,
+        //     MapPermission::R | MapPermission::W | MapPermission::U,
+        // ), None);
 
         // map signal user stack with U flags
         // maparea4: signal_user_stack
         let mut signal_stack_top: usize = USER_SIGNAL_STACK;
         let signal_stack_bottom: usize = signal_stack_top - SIGNAL_STACK_SIZE;
-        memory_set.push(MapArea::new(
-            signal_stack_bottom.into(),
-            signal_stack_top.into(),
-            MapType::Framed,
-            MapPermission::R | MapPermission::W | MapPermission::U,
-        ), None);
+        // memory_set.push(MapArea::new(
+        //     signal_stack_bottom.into(),
+        //     signal_stack_top.into(),
+        //     MapType::Framed,
+        //     MapPermission::R | MapPermission::W | MapPermission::U,
+        // ), None);
         
         memory_set.map_kernel_shared();
 
