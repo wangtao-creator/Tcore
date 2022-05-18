@@ -117,6 +117,7 @@ pub fn rust_main(_hartid: usize, device_tree_paddr: usize) -> ! {
     trap::enable_timer_interrupt();
     timer::set_next_trigger();
     println!("UltraOS: interrupt initialized");
+    sys_gputest();
     fs::init_rootfs();
     println!("UltraOS: fs initialized");
     task::add_initproc();
