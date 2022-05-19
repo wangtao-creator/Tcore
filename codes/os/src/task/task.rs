@@ -47,11 +47,11 @@ impl TaskControlBlock {
 }
 
 pub struct TaskControlBlockInner {
-    pub res: Option<TaskUserRes>,
-    pub trap_cx_ppn: PhysPageNum,
-    pub task_cx: TaskContext,
-    pub task_status: TaskStatus,
-    pub exit_code: Option<i32>,
+    pub res: Option<TaskUserRes>,//线程代码执行所需要的信息
+    pub trap_cx_ppn: PhysPageNum,//应用地址空间中的线程上下文被放在的物理帧的物理页号
+    pub task_cx: TaskContext,//线程上下文
+    pub task_status: TaskStatus,//线程当前的执行状态
+    pub exit_code: Option<i32>,//线程退出码
    
 }
 

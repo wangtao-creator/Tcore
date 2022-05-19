@@ -52,10 +52,12 @@ DISASM ?= -x
 build: $(KERNEL_BIN)
 
 env:
-	rustup override set nightly-2021-05-10
-	(rustup target list | grep "riscv64imac-unknown-none-elf (installed)") || rustup target add $(TARGET)
+
+	(rustup target list | grep "riscv64gc-unknown-none-elf (installed)") || rustup target add $(TARGET)
+# cargo install cargo-binutils --vers =0.3.3
 	rustup component add rust-src
 	rustup component add llvm-tools-preview
+
 
 #(rustup target list | grep "riscv64gc-unknown-none-elf (installed)") || rustup target add $(TARGET)
 #cargo install cargo-binutils
